@@ -18,6 +18,12 @@ builds:
     mod_timestamp: "{{ .CommitTimestamp }}"
     # no_unique_dist_dir: true
 
+archives:
+  - files:
+    - LICENSE
+    - README.md
+    - CHANGELOG.md
+
 snapshot:
   name_template: "{{ incpatch .Version }}-rc-{{.ShortCommit}}"
 

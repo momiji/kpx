@@ -1,0 +1,103 @@
+version: "3"
+services:
+  kdc:
+    build: kdc/
+    hostname: "kdc"
+    networks:
+      network:
+    ports:
+      - "749:749"
+      - "88:88/tcp"
+      - "88:88/udp"
+    volumes:
+      - ./kdc/init-script.sh:/init-script.sh:ro
+  client:
+    command: sh -c "while true ; do /kpx -c /it.yaml ; done"
+    hostname: client
+    image: debian
+    network_mode: host
+    volumes:
+      - ./../../kpx:/kpx:ro
+      - ./../it.yaml:/it.yaml:ro
+  anon:
+    build: squid/
+    environment:
+      - MODE=anon
+    hostname: proxy-anon
+    networks:
+      network:
+    ports:
+      - "3128:3128"
+    volumes:
+      - ./squid/init-script.sh:/init-script.sh:ro
+  basic:
+    build: squid/
+    environment:
+      - MODE=basic
+    hostname: proxy-basic
+    networks:
+      network:
+    ports:
+      - "3129:3128"
+    volumes:
+      - ./squid/init-script.sh:/init-script.sh
+  krb:
+    build: squid/
+    environment:
+      - MODE=krb
+    hostname: proxy-krb
+    networks:
+      network:
+    ports:
+      - "3130:3128"
+    volumes:
+      - ./squid/init-script.sh:/init-script.sh:ro
+  socksa:
+    hostname: socksa
+    image: serjs/go-socks5-proxy
+    networks:
+      network:
+    ports:
+      - "1080:1080"
+  socksp:
+    hostname: socksp
+    image: serjs/go-socks5-proxy
+    environment:
+      - PROXY_USER=socks
+      - PROXY_PASSWORD=sockspassword
+      - PROXY_PORT=1081
+    networks:
+      network:
+    ports:
+      - "1081:1081"
+  web:
+    command:
+      - sh
+      - -ce
+      - |
+        cd /usr/share/caddy
+        echo =1= > 1
+        echo =2= > 2
+        echo =3= > 3
+        echo =4= > 4
+        echo =5= > 5
+        caddy run --config /etc/caddy/Caddyfile
+    hostname: web
+    image: caddy:2.7.4-alpine
+    networks:
+      network:
+        aliases:
+          - web1
+          - web2
+          - web3
+          - web4
+          - web5
+          - web6
+          - web7
+          - web8
+          - web9
+    ports:
+      - "1082:80"
+
+networks:
+  network:

@@ -13,5 +13,11 @@ chglog format --template-file .chglog.template > CHANGELOG.md
 git add changelog.yml CHANGELOG.md
 git commit -m "docs: update changelog"
 
+# create tag and push
+git tag v1.5.0
+git push
+git push --tags
+
 # release new version
-goreleaser release --clean --skip-publish --skip-validate
+export GITHUB_TOKEN=$( gh auth token )
+goreleaser release --clean

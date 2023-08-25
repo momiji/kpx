@@ -9,7 +9,9 @@ builds:
     env:
       - CGO_ENABLED=0
     targets:
+#      - go_first_class
       - linux_amd64
+      - windows_amd64
     ldflags:
       - -s -w -X github.com/momiji/kpx.AppVersion={{.Version}}
     # binary: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}'
@@ -48,7 +50,7 @@ nfpms:
     description: |-
       kpx installer package.
       
-      Kerberos authenticating proxy with dynamic proxy selection, aka SwitchyOmega.
+      Kerberos authenticating proxy with dynamic proxy selection, aka SwitchyOmega without web browser.
 
     # Your app's license.
     license: MIT

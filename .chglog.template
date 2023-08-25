@@ -1,11 +1,16 @@
+{{ $entries := .Entries}}
+{{- range $i,$e := $entries }}
+{{- $prev := "1.4.9"}}
+{{- $j := add 1 $i}}
+{{- if lt $j (len $entries) }}
+{{- $pe := index $entries $j}}
+{{- $prev = $pe.Semver}}
+{{- end}}
+## [{{ .Semver }}](https://github.com/momiji/kpx/compare/v{{$prev}}...v{{.Semver}}) ({{ date_in_zone "2006-01-02" .Date "UTC" }})
+{{range .Changes }}{{$note := splitList "\n" .Note}}
+* {{ first $note }} [{{substr 0 8 .Commit}}](https://github.com/momiji/kpx/commit/{{.Commit}}){{end}}
 
-## [1.5.0](https://github.com/momiji/kpx/compare/v1.4.9...v1.5.0) (2023-08-25)
-
-* build: update .gitignore [14c3b11c](https://github.com/momiji/kpx/commit/14c3b11c82ff25dded6c75ee14f685ddf3ab9bc5)
-* initial commit in github [f943114c](https://github.com/momiji/kpx/commit/f943114ccec51bf77e875da9c47ce0668059ca27)
-* Initial commit [56cf03bb](https://github.com/momiji/kpx/commit/56cf03bb64a49b131463ee438455c9deaa9e5b7b)
-
-
+{{ end}}
 
 ---
 
@@ -201,4 +206,3 @@
 ## 2020-05-08 - initial port from java
 
 First version, port from actual java code.
-

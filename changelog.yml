@@ -1,0 +1,28 @@
+- semver: 1.5.0
+  date: 2023-08-25T17:38:16.492812758+02:00
+  packager: ""
+  changes:
+    - commit: 14c3b11c82ff25dded6c75ee14f685ddf3ab9bc5
+      note: 'build: update .gitignore'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: f943114ccec51bf77e875da9c47ce0668059ca27
+      note: initial commit in github
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 56cf03bb64a49b131463ee438455c9deaa9e5b7b
+      note: Initial commit
+      author:
+        name: Christian Bourgeois
+        email: momiji@users.noreply.github.com
+      committer:
+        name: GitHub
+        email: noreply@github.com

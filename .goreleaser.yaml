@@ -1,0 +1,68 @@
+# Make sure to check the documentation at https://goreleaser.com
+before:
+  hooks:
+    - go mod tidy
+    - go mod vendor
+
+builds:
+  - main: ./cli
+    env:
+      - CGO_ENABLED=0
+    targets:
+      - linux_amd64
+    ldflags:
+      - -s -w -X github.com/momiji/kpx.AppVersion={{.Version}}
+    # binary: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}'
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    # no_unique_dist_dir: true
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-rc-{{.ShortCommit}}"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+nfpms:
+  - id: linux_amd64
+    package_name: kpx
+
+    # Default: '{{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}'
+    # Templates: allowed
+    file_name_template: "{{ .ConventionalFileName }}"
+
+    # Your app's vendor.
+    vendor: Christian Bourgeois
+
+    # Your app's homepage.
+    homepage: https://github.com/momiji/kpx
+
+    # Your app's maintainer (probably you).
+    maintainer: Christian Bourgeois (github.com/momiji)
+
+    # Your app's description.
+    description: |-
+      kpx installer package.
+      
+      Kerberos authenticating proxy with dynamic proxy selection, aka SwitchyOmega.
+
+    # Your app's license.
+    license: MIT
+
+    # Formats to be generated.
+    formats:
+      - apk
+      - deb
+      - rpm
+
+    umask: 0o002
+
+    # Path that the binaries should be installed.
+    # Default: '/usr/bin'
+    bindir: /usr/bin
+
+    # Version Release.
+    release: 1

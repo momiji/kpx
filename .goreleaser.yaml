@@ -25,6 +25,7 @@ changelog:
     exclude:
       - '^docs:'
       - '^test:'
+      - '^chore:'
 
 nfpms:
   - id: linux_amd64

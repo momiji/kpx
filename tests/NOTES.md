@@ -1,5 +1,15 @@
 ## Test kerberos integration in squid
 
+Certs can be generated using this command:
+
+```shell
+$ docker run --rm -it -e CA_EXPIRE=36000 -e SSL_EXPIRE=36000 -e SSL_DNS="*.example.com" -v $PWD/certs:/certs paulczar/omgwtfssl
+...
+
+$ openssl x509 -text -noout -in ./certs/cert.pem | grep DNS:
+                DNS:*.example.com, DNS:example.com
+```
+
 This must be run from inside squid container:
 
 ```shell

@@ -2,6 +2,7 @@ bind: 127.0.0.1
 port: 8888
 verbose: true
 debug: true # required to have kpx- headers
+trace: true
 
 proxies:
   anon:
@@ -52,23 +53,25 @@ credentials:
     password: sockspassword
 
 rules:
-  - host: "web1"
+  - host: "web1*"
     proxy: anon
-  - host: "web2"
+  - host: "web2*"
     proxy: basic
-  - host: "web3"
+  - host: "web3*"
     proxy: kdc
-  - host: "web4"
+  - host: "web4*"
     proxy: socksa
-  - host: "web5"
+  - host: "web5*"
     proxy: socksp
-  - host: "webZ-dns"
+  - host: "webZ-dns*"
     dns: 127.0.0.1:1082
-  - host: "web6"
+  - host: "webZs-dns*"
+    dns: 127.0.0.1:1083
+  - host: "web6*"
     proxy: invalid,basic
-  - host: "web7"
+  - host: "web7*"
     proxy: mbasic
-  - host: "none"
+  - host: "none*"
     proxy: none
   - host: "cache.nixos.org"
     proxy: anon

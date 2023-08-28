@@ -12,9 +12,9 @@ services:
     volumes:
       - ./kdc/init-script.sh:/init-script.sh:ro
   client:
-    command: sh -c "while true ; do /kpx -c /it.yaml ; done"
+    build: squid/
+    command: sh -c "while true ; do /kpx -c /it.yaml && break ; sleep 1 ; done"
     hostname: client
-    image: debian
     network_mode: host
     volumes:
       - ./../../kpx:/kpx:ro
@@ -73,31 +73,56 @@ services:
   web:
     command:
       - sh
-      - -ce
+      - -cex
       - |
         cd /usr/share/caddy
-        echo =1= > 1
-        echo =2= > 2
-        echo =3= > 3
-        echo =4= > 4
-        echo =5= > 5
-        caddy run --config /etc/caddy/Caddyfile
+        for i in 1 2 3 4 5 6 7 8 9 ; do echo =$$i= > $$i ; done 
+        caddy run --config /Caddyfile
     hostname: web
     image: caddy:2.7.4-alpine
     networks:
       network:
         aliases:
-          - web1
-          - web2
-          - web3
-          - web4
-          - web5
-          - web6
-          - web7
-          - web8
-          - web9
+          - web1.example.com
+          - web2.example.com
+          - web3.example.com
+          - web4.example.com
+          - web5.example.com
+          - web6.example.com
+          - web7.example.com
+          - web8.example.com
+          - web9.example.com
     ports:
       - "1082:80"
+    volumes:
+      - ./web/Caddyfile:/Caddyfile:ro
+  webs:
+    command:
+      - sh
+      - -cex
+      - |
+        cd /usr/share/caddy
+        for i in 1 2 3 4 5 6 7 8 9 ; do echo =$$i= > $$i ; done
+        caddy run --config /Caddyfile
+    hostname: webs
+    image: caddy:2.7.4-alpine
+    networks:
+      network:
+        aliases:
+          - web1s.example.com
+          - web2s.example.com
+          - web3s.example.com
+          - web4s.example.com
+          - web5s.example.com
+          - web6s.example.com
+          - web7s.example.com
+          - web8s.example.com
+          - web9s.example.com
+    ports:
+      - "1083:443"
+    volumes:
+      - ./webs/Caddyfile:/Caddyfile:ro
+      - ../certs/:/certs/:ro
 
 networks:
   network:

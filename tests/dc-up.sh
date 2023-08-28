@@ -2,5 +2,5 @@
 set -Eeuo pipefail
 cd "$(dirname "$0")"
 
-[ -x ../kpx ] || ( cd .. && make )
+( cd .. && make fast )
 docker compose -f kpx/docker-compose.yaml up --build --force-recreate --timeout 0 "$@"

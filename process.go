@@ -376,7 +376,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 				if firstProxy.Ssl {
 					tlsConfig := tls.Config{}
 					conn, err = tls.DialWithDialer(dialer, "tcp4", firstHostPort, &tlsConfig)
-				} else if clientChannel.header.isConnect {
+				} else if clientChannel.header.isConnect || clientChannel.header.directToConnect {
 					conn, err = dialer.Dial("tcp4", firstHostPort)
 				} else {
 					// may reuse a http connection from pool
@@ -423,7 +423,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 				if firstProxy.Ssl {
 					tlsConfig := tls.Config{}
 					conn, err = tls.DialWithDialer(dialer, "tcp4", hostPort, &tlsConfig)
-				} else if clientChannel.header.isConnect {
+				} else if clientChannel.header.isConnect || clientChannel.header.directToConnect {
 					conn, err = dialer.Dial("tcp4", hostPort)
 				} else {
 					// may reuse a http connection from pool

@@ -11,7 +11,7 @@ goreleaser build --clean
 chglog add --version $tag
 chglog format --template-file .chglog.template > CHANGELOG.md
 git add changelog.yml CHANGELOG.md
-git commit -m "docs: update changelog"
+git commit -m "docs: update changelog for $tag"
 
 # create tag and push
 git tag $tag

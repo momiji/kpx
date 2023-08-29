@@ -1,3 +1,63 @@
+- semver: 1.5.1
+  date: 2023-08-29T17:42:34.347042152+02:00
+  packager: ""
+  changes:
+    - commit: da85021967fac1467017316b7cfb16b932d9d0b8
+      note: 'tests: add scripts'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: b10a767ed2fd97289e7e93da5882e1bf85927ba3
+      note: 'tests: add missing 100 years certs'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 18a5bc7e04f56df56d9bca929607efb64a690257
+      note: 'fix: vacuum for connection pool and closed connection detection'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 0f521dd9ad2ff8c64d427df7919a3c0b7b81fb3e
+      note: 'fix: directToConnect connections (https rewrite) cannot be reused'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 4290e15e45dc1b3efdbf0178a48aea41c8e32839
+      note: 'tests: add https tests'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: ee4ee5c50bfd711fe071e62660ce3c46da6048a6
+      note: 'chore: update goreleaser configuration'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: d1769aafbad22998b6146a833970d8bc8db029ae
+      note: 'chore: update goreleaser configuration'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
 - semver: 1.5.0
   date: 2023-08-25T17:38:16.492812758+02:00
   packager: ""

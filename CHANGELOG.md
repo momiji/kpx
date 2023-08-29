@@ -1,7 +1,12 @@
 
+## [1.5.1](https://github.com/momiji/kpx/compare/v1.5.0...v1.5.1) (2023-08-29)
+
+* fix: vacuum for connection pool and closed connection detection [18a5bc7e](https://github.com/momiji/kpx/commit/18a5bc7e04f56df56d9bca929607efb64a690257)
+* fix: directToConnect connections (https rewrite) cannot be reused [0f521dd9](https://github.com/momiji/kpx/commit/0f521dd9ad2ff8c64d427df7919a3c0b7b81fb3e)
+
+
 ## [1.5.0](https://github.com/momiji/kpx/compare/v1.4.9...v1.5.0) (2023-08-25)
 
-* build: update .gitignore [14c3b11c](https://github.com/momiji/kpx/commit/14c3b11c82ff25dded6c75ee14f685ddf3ab9bc5)
 * initial commit in github [f943114c](https://github.com/momiji/kpx/commit/f943114ccec51bf77e875da9c47ce0668059ca27)
 * Initial commit [56cf03bb](https://github.com/momiji/kpx/commit/56cf03bb64a49b131463ee438455c9deaa9e5b7b)
 

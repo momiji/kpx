@@ -14,7 +14,7 @@ git add changelog.yml CHANGELOG.md
 git commit -m "docs: update changelog"
 
 # create tag and push
-git tag v1.5.0
+git tag $tag
 git push
 git push --tags
 

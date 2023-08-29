@@ -33,6 +33,7 @@ changelog:
     exclude:
       - '^docs:'
       - '^test:'
+      - '^tests:'
       - '^chore:'
 
 nfpms:

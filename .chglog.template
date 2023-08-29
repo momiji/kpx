@@ -7,8 +7,8 @@
 {{- $prev = $pe.Semver}}
 {{- end}}
 ## [{{ .Semver }}](https://github.com/momiji/kpx/compare/v{{$prev}}...v{{.Semver}}) ({{ date_in_zone "2006-01-02" .Date "UTC" }})
-{{range .Changes }}{{$note := splitList "\n" .Note}}
-* {{ first $note }} [{{substr 0 8 .Commit}}](https://github.com/momiji/kpx/commit/{{.Commit}}){{end}}
+{{range .Changes }}{{$note := first (splitList "\n" .Note)}}{{$type := first (splitList ":" $note)}}{{if eq $type "tests" "chore" "build"}}{{else}}
+* {{ $note }} [{{substr 0 8 .Commit}}](https://github.com/momiji/kpx/commit/{{.Commit}}){{end}}{{end}}
 
 {{ end}}
 

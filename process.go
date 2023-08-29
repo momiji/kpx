@@ -16,8 +16,6 @@ import (
 	"time"
 )
 
-var _cm *CertsManager
-
 type Process struct {
 	config      *Config //copy config here because it is multithreaded
 	proxy       *Proxy
@@ -153,7 +151,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 				// try to connect to host
 				dialer := new(net.Dialer)
 				dialer.Timeout = time.Duration(p.config.conf.ConnectTimeout) * time.Second
-				dial, err := dialer.Dial("tcp4", hostPort)
+				checkConn, err := dialer.Dial("tcp4", hostPort)
 				if err != nil {
 					// on failure, try next host
 					if debug {
@@ -161,7 +159,8 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 					}
 					continue
 				}
-				dial.Close()
+				ConfigureConn(checkConn)
+				_ = checkConn.Close()
 				// update last proxy and host usage
 				p.config.lastMMutex.RLock()
 				pl := p.config.lastProxies[*proxy.name]
@@ -219,14 +218,14 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 		return p.closeChannels(clientChannel, proxyChannel)
 	}
 
-	// authorization is now computed lazely, as we don't know yet if we need a new autohorization header.
+	// authorization is now computed lazily, as we don't know yet if we need a new authorization header.
 	// if we're reusing an existing connection, authorization is not necessary
 	var authorization *string
 	var authorizationFunc func() (*string, error)
 	var authorizationContext string
 
 	// check if authentication is required as defined in the configuration.
-	// authentication is computed on each requests, regardless connection will be reused or not.
+	// authentication is computed on each request, regardless connection will be reused or not.
 	authentication := (*firstProxy.Type == ProxyKerberos || *firstProxy.Type == ProxyBasic || *firstProxy.Type == ProxySocks) && firstProxy.cred != nil
 	//if proxyChannel != nil {
 	//    authentication = false
@@ -436,6 +435,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 				logError("%s => dial: %#s", p.logLine, err)
 				return p.closeChannels(clientChannel, proxyChannel)
 			}
+			ConfigureConn(conn)
 			proxyChannel = &ProxyRequest{
 				conn: NewTimedConn(conn, newTraceInfo(p.reqId, "proxy")),
 			}
@@ -769,7 +769,7 @@ func (p *Process) forwardRequest(clientChannel *ProxyRequest, proxyChannel *Prox
 	return p.forwardStream(clientChannel, proxyChannel)
 }
 
-func (p *Process) forwardConnect(clientChannel *ProxyRequest, proxyChannel *ProxyRequest, proxyType ProxyType, auth *string) error {
+func (p *Process) forwardConnect(clientChannel *ProxyRequest, proxyChannel *ProxyRequest, _ ProxyType, auth *string) error {
 	var err error
 	if debug {
 		proxyChannel.prefix = fmt.Sprintf("%s >>", p.logPrefix)
@@ -832,8 +832,8 @@ func (p *Process) forwardResponse(proxyChannel *ProxyRequest, clientChannel *Pro
 		}
 	}
 	if debug {
-		clientChannel.writeHeader("kpx-proxy", p.logName)
-		clientChannel.writeHeader("kpx-host", p.logHostPort)
+		_ = clientChannel.writeHeader("kpx-proxy", p.logName)
+		_ = clientChannel.writeHeader("kpx-host", p.logHostPort)
 	}
 	if !clientChannel.header.isConnect {
 		err = clientChannel.writeKeepAlive(clientChannel.header.keepAlive, clientChannel.header.isProxyConnection)

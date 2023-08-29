@@ -99,7 +99,7 @@ func (p *Proxy) loadKerberos(config *Config) error {
 	// initialize kerberos clients based on user/realm
 	for _, proxy := range config.conf.Proxies {
 		if *proxy.Type == ProxyKerberos && proxy.cred != nil && proxy.cred.isUsed {
-			// try to login
+			// try to log in
 			_, err := p.kerberos.safeTryLogin(*proxy.cred.Login, *proxy.Realm, *proxy.cred.Password, false)
 			if err != nil {
 				return stacktrace.Propagate(err, "unable to login to kerberos")
@@ -237,12 +237,19 @@ func (p *Proxy) run() error {
 			time.Sleep(60 * time.Second)
 		}
 	}()*/
+	go func() {
+		for !p.stopped() {
+			<-time.After(time.Duration(POOL_CLOSE_TIMEOUT) * time.Second)
+			p.vacuumPool()
+		}
+	}()
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
 			continue
 		}
+		ConfigureConn(conn)
 		if p.forceStop.IsSet() {
 			_ = conn.Close() // force closing client, ignore any error
 			break
@@ -290,14 +297,14 @@ func (p *Proxy) generateKerberosNegotiate(username string, realm string, passwor
 }
 
 type PooledConnection struct {
-	conn    net.Conn
+	conn    *CloseAwareConn
 	timeout time.Time
 	reqId   int32
 }
 
 type PooledConnectionInfo struct {
 	key   string
-	conn  net.Conn
+	conn  *CloseAwareConn
 	reqId int32
 }
 
@@ -324,15 +331,18 @@ func (p *Proxy) newPooledConn(dialer *net.Dialer, network string, proxy string, 
 			if trace {
 				logInfo("(%d) reusing connection %d from pool", reqId, pc.reqId)
 			}
-			pc.conn.SetDeadline(time.Time{})
+			_ = pc.conn.SetDeadline(time.Time{})
+			pc.conn.Reset(reqId)
 			return true, &PooledConnectionInfo{key, pc.conn, pc.reqId}, nil
+		} else {
+			_ = pc.conn.Close()
 		}
 		if trace {
 			logInfo("(%d) removed old connection %d from pool", reqId, pc.reqId)
 		}
 	}
 	// create a new connection
-	c, err := dialer.Dial(network, proxy)
+	c, err := NewCloseAwareConn(dialer, network, proxy, reqId)
 	return false, &PooledConnectionInfo{key, c, reqId}, err
 }
 
@@ -345,6 +355,44 @@ func (p *Proxy) pushConnToPool(info *PooledConnectionInfo, reqId int32) {
 	poolTimeout := time.Now().Add(POOL_CLOSE_TIMEOUT * time.Second)
 	closeTimeout := poolTimeout.Add(POOL_CLOSE_TIMEOUT_ADD * time.Second)
 	if err := info.conn.SetDeadline(closeTimeout); err == nil {
-		p.connPool[info.key].PushBack(&PooledConnection{conn: info.conn, timeout: poolTimeout, reqId: info.reqId})
+		var items *list.List
+		if l, ok := p.connPool[info.key]; ok {
+			items = l
+		} else {
+			l = list.New()
+			p.connPool[info.key] = l
+			items = l
+		}
+		items.PushBack(&PooledConnection{conn: info.conn, timeout: poolTimeout, reqId: info.reqId})
+	}
+}
+
+func (p *Proxy) vacuumPool() {
+	if trace {
+		logInfo("deleting connections from pool")
+	}
+	p.poolMutex.Lock()
+	defer p.poolMutex.Unlock()
+	now := time.Now()
+	total := 0
+	count := 0
+	for key, items := range p.connPool {
+		var next *list.Element
+		for e := items.Front(); e != nil; e = next {
+			total++
+			next = e.Next()
+			pc := e.Value.(*PooledConnection)
+			if pc.timeout.After(now) {
+				count++
+				_ = pc.conn.Close()
+				items.Remove(e)
+			}
+		}
+		if items.Len() == 0 {
+			delete(p.connPool, key)
+		}
+	}
+	if trace {
+		logInfo("%d connections removed from pool, %d remaining", count, total-count)
 	}
 }

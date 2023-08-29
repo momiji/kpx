@@ -6,8 +6,26 @@ import (
 	"time"
 )
 
+func ConfigureConn(conn net.Conn) {
+	//// EXPERIMENTAL code to try reducing TIME_WAIT connections
+	//if c, ok := conn.(*net.TCPConn); ok {
+	//	c.SetLinger(0)
+	//	c.SetNoDelay(true)
+	//	if s, e := c.SyscallConn(); e == nil {
+	//		s.Control(func(fd uintptr) {
+	//			_ = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.TCP_LINGER2, 1)
+	//		})
+	//	}
+	//	return
+	//}
+	//if c, ok := conn.(*tls.Conn); ok {
+	//	ConfigureConn(c)
+	//	return
+	//}
+}
+
 /*
-Wrapper around net.Conn which provides automatic read/write timeouts:
+TimedConn is a wrapper around net.Conn which provides automatic read/write timeouts:
 - if timeout > 0, set an absolute timeout on first read
 - if timeout = 0, do not set timeout
 - if timeout < 0, set a sliding timeout, which automatically increases each min( 30s , timeout/2 ).
@@ -97,4 +115,116 @@ func (tc *TimedConn) setTimeout(timeout int) {
 	tc.timeout = timeout
 	tc.last = time.Time{}
 	tc.deadlines(true)
+}
+
+/*
+CloseAwareConn is a connection that can detect if underlying connection is closed, but only on first Write() after Reset() has been called.
+This way, we can choose when the closed connection can be replaced by a new one, ensuring connection closed is only handled when expected.
+
+This allows to detect a restart of a remote proxy, for example.
+
+On linux and Windows (and MacOS?), a double .Write() allows to detect a closed connection, but this trick does not work all the time.
+*/
+type CloseAwareConn struct {
+	reset   bool
+	dialer  *net.Dialer
+	network string
+	proxy   string
+	conn    net.Conn
+	reqId   int32
+	currId  int32
+}
+
+func NewCloseAwareConn(dialer *net.Dialer, network string, proxy string, reqId int32) (*CloseAwareConn, error) {
+	cc := &CloseAwareConn{
+		reset:   false,
+		dialer:  dialer,
+		network: network,
+		proxy:   proxy,
+		conn:    nil,
+		reqId:   reqId,
+		currId:  reqId,
+	}
+
+	err := cc.ReOpen()
+	if err != nil {
+		return nil, err
+	}
+	return cc, nil
+}
+
+func (cc *CloseAwareConn) Reset(reqId int32) {
+	cc.reset = true
+	cc.currId = reqId
+}
+
+func (cc *CloseAwareConn) ReOpen() error {
+	c, err := cc.dialer.Dial(cc.network, cc.proxy)
+	if err != nil {
+		return err
+	}
+	ConfigureConn(c)
+	cc.conn = c
+	return nil
+}
+
+func (cc *CloseAwareConn) Read(b []byte) (n int, err error) {
+	return cc.conn.Read(b)
+}
+
+func (cc *CloseAwareConn) Write(b []byte) (n int, err error) {
+	if cc.reset && len(b) > 0 {
+		cc.reset = false
+		// we can eventually recreate a new connection if writing first byte fails
+		n, err = cc.conn.Write(b[0:1])
+		if err != nil {
+			// try to recreate the connection
+			if cc.ReOpen() != nil {
+				return 0, err
+			}
+			if trace {
+				logInfo("(%d) connection %d replaced by a new one", cc.currId, cc.reqId)
+			}
+			return cc.conn.Write(b)
+		}
+		// we can eventually recreate a new connection if writing next byte fails
+		n, err = cc.conn.Write(b[1:])
+		if err != nil {
+			// try to recreate the connection
+			if cc.ReOpen() != nil {
+				return 0, err
+			}
+			if trace {
+				logInfo("(%d) connection %d replaced by a new one", cc.currId, cc.reqId)
+			}
+			return cc.conn.Write(b)
+		}
+		// and rewrite buffer
+		return n + 1, nil
+	}
+	return cc.conn.Write(b)
+}
+
+func (cc *CloseAwareConn) Close() error {
+	return cc.conn.Close()
+}
+
+func (cc *CloseAwareConn) LocalAddr() net.Addr {
+	return cc.conn.LocalAddr()
+}
+
+func (cc *CloseAwareConn) RemoteAddr() net.Addr {
+	return cc.conn.RemoteAddr()
+}
+
+func (cc *CloseAwareConn) SetDeadline(t time.Time) error {
+	return cc.conn.SetDeadline(t)
+}
+
+func (cc *CloseAwareConn) SetReadDeadline(t time.Time) error {
+	return cc.conn.SetReadDeadline(t)
+}
+
+func (cc *CloseAwareConn) SetWriteDeadline(t time.Time) error {
+	return cc.conn.SetWriteDeadline(t)
 }

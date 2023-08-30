@@ -6,14 +6,37 @@
 - **inject credential** for remote proxies, allowing to use proxy without setting credentials
 - support **kerberos** and **basic** credentials
 - support remote **http** and **socks** proxies
-- **internally developped**, allowing to add features when necessary, like **proxy failover**, **regex rules**, **password caching**, **PAC support**, ...
+- **internally developed**, allowing to add features when necessary, like **proxy failover**, **regex rules**, **password caching**, **PAC support**, ...
 - **multi-platform binaries**, for Windows, Linux and MacOS
 - support **update** and **restart** when configured
 
 Alternatives tools that can be used:
-- **Fiddler**, a debugging proxy that inspect flows: https://www.telerik.com/fiddler
+- **Fiddler**, a debugging proxy that inspect/modify flows: https://www.telerik.com/fiddler
 - **Charles**, a debugging proxy that can inspect flows: https://www.charlesproxy.com
-- **Px**, a cntlm/kerberos proxy written in python: https://github.com/genotrance/px
+- **Px**, a ntlm/kerberos proxy written in python: https://github.com/genotrance/px
+- **Alpaca**, a ntlm proxy written in go: https://github.com/samuong/alpaca
+
+## TL;DR
+
+Start a krb-proxy on `127.0.0.1:8888` :
+```shell
+$ krb-proxy -u user_login@example.com -l 8888 proxy:8080
+```
+
+Start a krb-proxy on `0.0.0.0:8888` :
+```shell
+$ krb-proxy -u user_login@example.com -l 0.0.0.0:8888 proxy:8080
+```
+
+Start a krb-proxy with the default `krb-proxy.yaml` config file :
+```shell
+$ krb-proxy
+```
+
+Start a krb-proxy with a specific my-config.yaml file :
+```shell
+$ krb-proxy -c my-config.yaml
+```
 
 ## Usage
 

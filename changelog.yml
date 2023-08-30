@@ -1,3 +1,31 @@
+- semver: 1.5.2
+  date: 2023-08-30T11:31:03.244547926+02:00
+  packager: ""
+  changes:
+    - commit: 8649d06d2af4f63cdaa031a2d3828db1269d8faf
+      note: 'docs: update README.md'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 0bf6d7c173ee278d3430c4f5505a05d49759576a
+      note: 'fix: disable auto-update for versions ''dev*'' instead of ''dev'''
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 095b264fe3652bcc5e921f0226ebf9adaac1c4d4
+      note: 'build: update Makefile'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
 - semver: 1.5.1
   date: 2023-08-29T17:42:34.347042152+02:00
   packager: ""

@@ -1,4 +1,9 @@
 
+## [1.5.2](https://github.com/momiji/kpx/compare/v1.5.1...v1.5.2) (2023-08-30)
+
+* fix: disable auto-update for versions 'dev*' instead of 'dev' [0bf6d7c1](https://github.com/momiji/kpx/commit/0bf6d7c173ee278d3430c4f5505a05d49759576a)
+
+
 ## [1.5.1](https://github.com/momiji/kpx/compare/v1.5.0...v1.5.1) (2023-08-29)
 
 * fix: vacuum for connection pool and closed connection detection [18a5bc7e](https://github.com/momiji/kpx/commit/18a5bc7e04f56df56d9bca929607efb64a690257)

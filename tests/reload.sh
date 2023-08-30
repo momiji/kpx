@@ -3,7 +3,7 @@ set -Eeuo pipefail
 cd "$(dirname "$0")"
 
 cd ..
-make fast
+make
 docker compose -f ./tests/kpx/docker-compose.yaml restart client -t 0
 
 max=2

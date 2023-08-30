@@ -1,18 +1,18 @@
 kpx: $(wildcard *.go go.mod go.sum)
+	go build -o kpx -ldflags="-s -w -X main.Version=dev/$$(date +%FT%T%z)" cli/main.go
+
+.PHONY: mod
+mod:
 	go mod tidy
 	go mod vendor
-	go build -o kpx -ldflags="-s -w" cli/main.go
 
-build: kpx
-
+.PHONY: force
 force: clean kpx
 
-fast:
-	go build -o kpx -ldflags="-s -w" cli/main.go
-
 .PHONY: run
-run: kpx
-	./kpx -c tests/ti.yaml
+tests: kpx
+	./tests/run.sh
 
+.PHONY: clean
 clean:
 	rm -f kpx

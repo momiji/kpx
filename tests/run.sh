@@ -2,8 +2,6 @@
 set -Eeuo pipefail
 cd "$(dirname "$0")"
 
-( cd .. && make )
-
 # restart docker containers
 ./dc-up.sh -d
 
@@ -14,7 +12,7 @@ while true ; do
 done
 
 # run all it tests
-./tests-basic.sh ||:
+./tests-http.sh ||:
 ./tests-pac.sh ||:
 ./tests-rewrite.sh ||:
 

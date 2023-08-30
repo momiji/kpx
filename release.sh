@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 tag=$1
 
 # build to ensure all is fine
-goreleaser build --clean
+goreleaser build --clean --skip-validate
 
 # generate new changelog
 chglog add --version $tag

@@ -35,6 +35,7 @@ changelog:
       - '^test:'
       - '^tests:'
       - '^chore:'
+      - '^build:'
 
 nfpms:
   - id: linux_amd64

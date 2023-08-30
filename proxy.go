@@ -227,6 +227,7 @@ func (p *Proxy) run() error {
 	if options.Timeout > 0 {
 		go func() {
 			<-time.After(time.Duration(options.Timeout) * time.Second)
+			logDestroy()
 			os.Exit(0)
 		}()
 		logInfo("[-] Proxy will exit automatically in %v seconds", options.Timeout)

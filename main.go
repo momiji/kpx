@@ -212,7 +212,7 @@ func Main() {
 
 func templates(text string, values map[string]string) string {
 	var tpl bytes.Buffer
-	template.Must(template.New("").Parse(text)).Execute(&tpl, values)
+	_ = template.Must(template.New("").Parse(text)).Execute(&tpl, values)
 	return tpl.String()
 }
 
@@ -545,6 +545,7 @@ func update(proxy *Proxy) {
 
 	// exit
 	logInfo("[-] Exiting on update (restart=true)")
+	logDestroy()
 	os.Exit(200)
 }
 

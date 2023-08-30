@@ -1,3 +1,23 @@
+- semver: 1.5.3
+  date: 2023-08-30T12:16:42.886590832+02:00
+  packager: ""
+  changes:
+    - commit: 5e1d55514a2ee9ac2561f49829407d59fa8fe5ba
+      note: 'fix: add missing log flush'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 997ae4674da3addc7b38ca15049e760637613855
+      note: 'build: fix configuration'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
 - semver: 1.5.2
   date: 2023-08-30T11:31:03.244547926+02:00
   packager: ""

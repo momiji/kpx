@@ -1,4 +1,9 @@
 
+## [1.5.3](https://github.com/momiji/kpx/compare/v1.5.2...v1.5.3) (2023-08-30)
+
+* fix: add missing log flush [5e1d5551](https://github.com/momiji/kpx/commit/5e1d55514a2ee9ac2561f49829407d59fa8fe5ba)
+
+
 ## [1.5.2](https://github.com/momiji/kpx/compare/v1.5.1...v1.5.2) (2023-08-30)
 
 * fix: disable auto-update for versions 'dev*' instead of 'dev' [0bf6d7c1](https://github.com/momiji/kpx/commit/0bf6d7c173ee278d3430c4f5505a05d49759576a)

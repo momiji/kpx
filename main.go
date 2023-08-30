@@ -376,7 +376,7 @@ func start() {
 	go proxy.watch1()
 	go proxy.watch2()
 	// update task
-	if AppVersion != "dev" {
+	if !strings.HasPrefix(AppVersion, "dev") {
 		go func() {
 			time.Sleep(3 * time.Second)
 			for {

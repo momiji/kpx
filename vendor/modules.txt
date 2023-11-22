@@ -118,6 +118,10 @@ golang.org/x/term
 ## explicit; go 1.17
 golang.org/x/text/cases
 golang.org/x/text/collate
+golang.org/x/text/encoding
+golang.org/x/text/encoding/charmap
+golang.org/x/text/encoding/internal
+golang.org/x/text/encoding/internal/identifier
 golang.org/x/text/internal
 golang.org/x/text/internal/colltab
 golang.org/x/text/internal/language

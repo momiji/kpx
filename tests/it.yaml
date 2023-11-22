@@ -75,6 +75,8 @@ rules:
     proxy: none
   - host: "cache.nixos.org"
     proxy: anon
+  - host: "*"
+    proxy: kdc
 
 krb5: |
   [libdefaults]

@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/howeyc/gopass"
 	"github.com/palantir/stacktrace"
+	"golang.org/x/text/encoding/charmap"
 	yaml2 "gopkg.in/yaml.v2"
 	"io"
 	"net/http"
@@ -353,12 +354,22 @@ func (c *Config) build() error {
 			if err != nil {
 				return stacktrace.Propagate(err, "proxy '%s': unable to download pac, %v", *proxy.name, err)
 			}
+			proxy.pacJs = nil
+			// load js as unicode/utf-8
 			js := string(jsb)
-			proxy.pacJs = &js
 			pacExecutor, err := NewPac(js)
 			if err != nil {
-				return stacktrace.Propagate(err, "proxy '%s': unable to create pac runtime, %v", *proxy.name, err)
+				// load js as iso-latin-1
+				jsb2, err := charmap.ISO8859_1.NewDecoder().Bytes(jsb)
+				if err == nil {
+					js = string(jsb2)
+					pacExecutor, err = NewPac(js)
+					if err != nil {
+						return stacktrace.Propagate(err, "proxy '%s': unable to create pac runtime, %v", *proxy.name, err)
+					}
+				}
 			}
+			proxy.pacJs = &js
 			proxy.pacRuntime = pacExecutor
 			//
 			for _, cred := range c.splitCredentials(proxy.Credentials) {
@@ -636,7 +647,8 @@ func (c *Config) resolve(url, host string, rule *ConfRule) []*ConfProxy {
 }
 
 func (c *Config) resolvePac(url, host string, proxy *ConfProxy) *PacResult {
-	pac, _ := NewPac(*proxy.pacJs)
+	//pac, _ := NewPac(*proxy.pacJs)
+	pac := *proxy.pacRuntime
 	proxies, _ := pac.Run(url, host)
 	firstProxy := strings.TrimSpace(strings.Split(strings.TrimSpace(proxies), ";")[0])
 	split := strings.SplitN(firstProxy+" ", " ", 2)

@@ -1,4 +1,9 @@
 
+## [1.5.5](https://github.com/momiji/kpx/compare/v1.5.4...v1.5.5) (2023-11-22)
+
+* fix: invalid build script [49910222](https://github.com/momiji/kpx/commit/49910222995f12e068c7a70fa9fe02b4f55ba220)
+
+
 ## [1.5.4](https://github.com/momiji/kpx/compare/v1.5.3...v1.5.4) (2023-11-22)
 
 * fix: allow multiple pac encoding [b18c99f9](https://github.com/momiji/kpx/commit/b18c99f9230413710134d1084bd06e176dbfc4f3)

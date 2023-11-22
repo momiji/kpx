@@ -1,3 +1,15 @@
+- semver: 1.5.5
+  date: 2023-11-22T10:24:58.749103523+01:00
+  packager: ""
+  changes:
+    - commit: 49910222995f12e068c7a70fa9fe02b4f55ba220
+      note: 'fix: invalid build script'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
 - semver: 1.5.4
   date: 2023-11-22T10:08:40.63828598+01:00
   packager: ""

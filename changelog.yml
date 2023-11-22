@@ -1,3 +1,15 @@
+- semver: 1.5.4
+  date: 2023-11-22T10:08:40.63828598+01:00
+  packager: ""
+  changes:
+    - commit: b18c99f9230413710134d1084bd06e176dbfc4f3
+      note: 'fix: allow multiple pac encoding'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
 - semver: 1.5.3
   date: 2023-08-30T12:16:42.886590832+02:00
   packager: ""

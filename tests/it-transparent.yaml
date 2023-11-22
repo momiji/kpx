@@ -1,0 +1,100 @@
+bind: 127.0.0.1
+port: 8080
+verbose: true
+debug: true # required to have kpx- headers
+trace: true
+
+proxies:
+  anon:
+    type: anonymous
+    host: 127.0.0.1
+    port: 3128
+  basic:
+    type: basic
+    host: 127.0.0.1
+    port: 3129
+    credential: user
+  kdc:
+    type: kerberos
+    spn: HTTP
+    realm: EXAMPLE.COM
+    host: 127.0.0.1
+    port: 3130
+    credential: krb
+  socksa:
+    type: socks
+    host: 127.0.0.1
+    port: 1080
+  socksp:
+    type: socks
+    host: 127.0.0.1
+    port: 1081
+    credential: socks
+  invalid:
+    type: basic
+    host: 1.2.3.4
+    port: 1
+    credential: user
+  mbasic:
+    type: basic
+    host: 1.2.3.4,127.0.0.1
+    port: 3129
+    credential: user
+
+credentials:
+  user:
+    login: user
+    password: userpassword
+  krb:
+    login: user@EXA
+    password: userpassword
+  socks:
+    login: socks
+    password: sockspassword
+
+rules:
+  - host: "web1*"
+    proxy: anon
+  - host: "web2*"
+    proxy: basic
+#  - host: "web3*"
+#    proxy: kdc
+  - host: "web4*"
+    proxy: socksa
+  - host: "web5*"
+    proxy: socksp
+  - host: "webZ-dns*"
+    dns: 127.0.0.1:1082
+  - host: "webZs-dns*"
+    dns: 127.0.0.1:1083
+  - host: "web6*"
+    proxy: invalid,basic
+  - host: "web7*"
+    proxy: mbasic
+  - host: "none*"
+    proxy: none
+  - host: "cache.nixos.org"
+    proxy: anon
+#  - host: "*"
+#    proxy: kdc
+
+krb5: |
+  [libdefaults]
+  dns_lookup_kdc = true
+  dns_lookup_realm = true
+  permitted_enctypes = sha1WithRSAEncryption-CmsOID rc2CBC-EnvOID rsaEncryption-EnvOID rsaES-OAEP-ENV-OID aes128-cts-hmac-sha1-96 aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha256-128 aes256-cts-hmac-sha384-192 camellia256-cts-cmac aes256-cts-hmac-sha1-96
+  # force TCP instead of UDP, timeout for KDC with a small value and max retries per kdc to 1
+  udp_preference_limit = 1
+  max_retries = 1
+  kdc_timeout = 3000
+  [realms]
+  EXAMPLE.COM = {
+    kdc = 127.0.0.1
+    admin_server = 127.0.0.1
+  }
+  [domain_realm]
+  .example.com = EXAMPLE.COM
+  example.com = EXAMPLE.COM
+
+domains:
+  EXA: EXAMPLE.COM

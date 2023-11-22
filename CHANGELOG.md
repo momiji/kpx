@@ -1,4 +1,9 @@
 
+## [1.5.4](https://github.com/momiji/kpx/compare/v1.5.3...v1.5.4) (2023-11-22)
+
+* fix: allow multiple pac encoding [b18c99f9](https://github.com/momiji/kpx/commit/b18c99f9230413710134d1084bd06e176dbfc4f3)
+
+
 ## [1.5.3](https://github.com/momiji/kpx/compare/v1.5.2...v1.5.3) (2023-08-30)
 
 * fix: add missing log flush [5e1d5551](https://github.com/momiji/kpx/commit/5e1d55514a2ee9ac2561f49829407d59fa8fe5ba)

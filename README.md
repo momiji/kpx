@@ -22,7 +22,7 @@ Also check the [Notes](#notes) below for specific configuration tips.
 
 ## Installation
 
-Download the latest release from the [releases](releases) page.
+Download the latest release from the releases page.
 
 ## TL;DR
 

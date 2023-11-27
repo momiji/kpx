@@ -1,6 +1,7 @@
 # kpx - Kerberos proxy with dynamic proxy selection
 
 **kpx** is a configurable authentication proxy, that can be used to:
+
 - route traffic to **different remote proxies** based on url
 - **stop traffic** for specific url
 - **inject credential** for remote proxies, allowing to use proxy without setting credentials
@@ -8,32 +9,35 @@
 - support remote **http** and **socks** proxies
 - **internally developed**, allowing to add features when necessary, like **proxy failover**, **regex rules**, **password caching**, **PAC support**, ...
 - **multi-platform binaries**, for Windows, Linux and MacOS
-- support **update** and **restart** when configured
+- support automatic **update** and **restart** when configured
 
 Alternatives tools that can be used:
+
 - **Fiddler**, a debugging proxy that inspect/modify flows: https://www.telerik.com/fiddler
 - **Charles**, a debugging proxy that can inspect flows: https://www.charlesproxy.com
 - **Px**, a ntlm/kerberos proxy written in python: https://github.com/genotrance/px
 - **Alpaca**, a ntlm proxy written in go: https://github.com/samuong/alpaca
 
+Also check the [Notes](#notes) below for specific configuration tips.
+
 ## TL;DR
 
-Start a krb-proxy on `127.0.0.1:8888` :
+Start a krb-proxy on `127.0.0.1:8888`:
 ```shell
 $ krb-proxy -u user_login@example.com -l 8888 proxy:8080
 ```
 
-Start a krb-proxy on `0.0.0.0:8888` :
+Start a krb-proxy on `0.0.0.0:8888`:
 ```shell
 $ krb-proxy -u user_login@example.com -l 0.0.0.0:8888 proxy:8080
 ```
 
-Start a krb-proxy with the default `krb-proxy.yaml` config file :
+Start a krb-proxy with the default `krb-proxy.yaml` config file:
 ```shell
 $ krb-proxy
 ```
 
-Start a krb-proxy with a specific my-config.yaml file :
+Start a krb-proxy with a specific my-config.yaml file:
 ```shell
 $ krb-proxy -c my-config.yaml
 ```
@@ -187,7 +191,7 @@ proxies:
     type: pac
     url: http://broproxycfg.int.world.company/ProxyPac/proxy.pac
     credentials: user
-        verbose: true
+    verbose: true
 # sample of kerberos proxy. 'pac' is used to get the kerberos realm in PAC proxies at runtime
   mkt:
     type: kerberos
@@ -282,3 +286,30 @@ domains:
   ASI: ASI.MSD.WORLD.COMPANY
   AME: AME.MSD.WORLD.COMPANY
 ```
+
+### Notes
+
+#### PAC configuration
+
+Using PAC is a little tricky, these are a few things to know before using it:
+
+- a PAC file can return multiple proxies
+- among them, some can require authentication and some not
+- to configure authentication, the returned proxy is matched against `pac:` entries in other proxies configuration  
+  example: `pac: proxy-mkt*` will match any PAC returning a `PROXY proxy-mkt*`
+- once a proxy is identified, it uses the authentication mechanism configured (kerberos, basic, ...)
+- the `credentials:` specifies a space separated list of all the credentials that can be used by all returned proxies  
+  this allows to identify used credentials, i.e. credentials that must be initialized (ask for a password or do kerberos authentication)
+
+#### Kerberos configuration
+
+Using kerberos authentication is easy, and the `credential:` setting allows to specify which user login/password to use.
+
+#### Credentials settings
+
+While scanning rules and proxies, all `credential:` and `credentials:` settings also mark the target credentials as being used.  
+This allows to know which credentials must be initialized on startup, like asking for a missing password.
+
+For credentials used in kerberos proxies, a login will be performed against the associated domain, to ensure password is correct.
+
+To allows cross-domain kerberos authentication, it is possible to add domain information to the login, like this: `login: username@DOMAIN`.

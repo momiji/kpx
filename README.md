@@ -20,6 +20,10 @@ Alternatives tools that can be used:
 
 Also check the [Notes](#notes) below for specific configuration tips.
 
+## Installation
+
+Download the latest release from the [releases](releases) page.
+
 ## TL;DR
 
 Start a krb-proxy on `127.0.0.1:8888`:
@@ -44,7 +48,7 @@ $ krb-proxy -c my-config.yaml
 
 ## Usage
 
-The kpx binary comes with default kerberos settings, however you might want to add specific configurations related to you kerberos environmeent,, like default domain names or aliases.
+The kpx binary comes with default kerberos settings, however you might want to add specific configurations related to you kerberos environment, like default domain names or aliases.
 
 An example of how to do this can be found [here](./build).
 
@@ -52,7 +56,7 @@ An example of how to do this can be found [here](./build).
 
 > When used like this, the program will exit automatically after **1 hour**, to prevent kpx from running forever.
 
-```sh
+```shell
 # Start a proxy on port 8888
 $ kpx -u user_login@example.com -l 8888 proxy:8080
 Credential [user] - Enter password for user 'user_login': *********
@@ -92,7 +96,7 @@ Configure:
 
 Configuration example:
 
-```
+```yaml
 bind: 127.0.0.1
 port: 8888
 verbose: true
@@ -144,7 +148,7 @@ credentials:
     password: encrypted:sfjlqsjfljsdqklfjmsklqjfqzioeuripouzfjklsdjmflsd==
 
 rules:
-# broproxycfg must be excluded to allow downloading PAC directly - this is nessecary only when working with intellij with a proxy configured 
+# broproxycfg must be excluded to allow downloading PAC directly - this is necessary only when working with intellij with a proxy configured 
   - host: "broproxycfg.int.world.company"
     proxy: direct
 # redirect all to pac
@@ -153,7 +157,8 @@ rules:
 ```
 
 ### Help
-```sh
+
+```yaml
 $ kpx -h
 
 # listen to this ip, use 0.0.0.0 to listen on all ips
@@ -266,7 +271,7 @@ rules:
   - host: "re:^github\.com$|^gitlab.com$"
     proxy: mkt
     verbose: true
-# sample: use mitm to have man-int-the-middle hijacked connections, CA is written in kpx.ca.crt 
+# sample: use mitm to have man-in-the-middle hijacked connections, CA is written in kpx.ca.crt 
   - host: "update.microsoft.com"
     proxy: mkt
     verbose: true

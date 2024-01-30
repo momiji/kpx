@@ -1,6 +1,8 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 
+( cd .. && make )
+
 check() {
   echo -n "$1 - check $2/$3 on proxy $4: "
   r=$( $CURL $2/$3 -kv 2>&1 | tr -d '\r' )

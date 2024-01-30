@@ -3,11 +3,6 @@ package kpx
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/howeyc/gopass"
-	"github.com/palantir/stacktrace"
-	"golang.org/x/text/encoding/charmap"
-	yaml2 "gopkg.in/yaml.v2"
 	"io"
 	"net/http"
 	"os"
@@ -16,6 +11,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/howeyc/gopass"
+	"github.com/palantir/stacktrace"
+	"golang.org/x/text/encoding/charmap"
+	yaml2 "gopkg.in/yaml.v2"
 )
 
 type Config struct {
@@ -25,7 +26,17 @@ type Config struct {
 	lastMMutex        sync.RWMutex
 	certsManager      *CertsManager
 	disableAutoUpdate bool
+	hostsCache        map[string]*HostCache
+	hostsCacheMutex   sync.RWMutex
 }
+
+type HostCache struct {
+	rule  *ConfRule
+	proxy []*ConfProxy
+}
+
+const EXPERIMENTAL_CONNETION_POOLS = "connection-pools"
+const EXPERIMENTAL_HOSTS_CACHE = "hosts-cache"
 
 func NewConfig(name string) (*Config, error) {
 	var config = Config{
@@ -35,7 +46,7 @@ func NewConfig(name string) (*Config, error) {
 			CloseTimeout:   DEFAULT_CLOSE_TIMEOUT,
 		},
 		lastProxies: map[string]time.Time{},
-		lastMMutex:  sync.RWMutex{},
+		hostsCache:  map[string]*HostCache{},
 	}
 	var err error
 	if name == "" {
@@ -46,6 +57,8 @@ func NewConfig(name string) (*Config, error) {
 	config.conf.Trace = config.conf.Trace || options.Trace
 	config.conf.Debug = config.conf.Debug || options.Debug || config.conf.Trace
 	config.conf.Verbose = config.conf.Verbose || options.Verbose || config.conf.Debug
+	config.conf.experimentalConnectionPools = isExperimental(config.conf.Experimental, EXPERIMENTAL_CONNETION_POOLS)
+	config.conf.experimentalHostsCache = isExperimental(config.conf.Experimental, EXPERIMENTAL_HOSTS_CACHE)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "unable to read config")
 	}
@@ -66,6 +79,10 @@ func NewConfig(name string) (*Config, error) {
 		return nil, stacktrace.Propagate(err, "unable to load certificates")
 	}
 	return &config, nil
+}
+
+func isExperimental(conf string, name string) bool {
+	return strings.Contains(" "+strings.ReplaceAll(conf, ",", " ")+" ", " "+name+" ")
 }
 
 func (c *Config) readFromConfig() error {
@@ -555,13 +572,16 @@ func (c *Config) askCredentials() error {
 }
 
 func (c *Config) match(url string, hostPort string) (*ConfRule, []*ConfProxy) {
+	if hc, ok := c.getCachedHost(hostPort); ok {
+		return hc.rule, hc.proxy
+	}
 	hostOnly := strings.Split(hostPort, ":")[0]
 	var direct *ConfRule
 	for _, rule := range c.conf.Rules {
 		match := false
 		if rule.regex.pattern == nil {
 			match = true
-		} else if strings.Contains(rule.regex.regex, "/") {
+		} else if !c.conf.experimentalHostsCache && strings.Contains(rule.regex.regex, "/") {
 			match = rule.regex.pattern.MatchString(url) != rule.regex.exclude
 		} else if strings.Contains(rule.regex.regex, ":") {
 			match = rule.regex.pattern.MatchString(hostPort) != rule.regex.exclude
@@ -571,6 +591,7 @@ func (c *Config) match(url string, hostPort string) (*ConfRule, []*ConfProxy) {
 		if match {
 			proxy := c.resolve(url, hostOnly, rule)
 			if proxy != nil && *proxy[0] != ConfProxyContinue {
+				c.addCachedHost(hostPort, rule, proxy)
 				return rule, proxy
 			}
 			direct = rule
@@ -579,9 +600,28 @@ func (c *Config) match(url string, hostPort string) (*ConfRule, []*ConfProxy) {
 	// if last successful rule is a pac rule which returned DIRECT, then return a "direct" proxy
 	// otherwise, return nil
 	if direct != nil {
-		return direct, []*ConfProxy{c.conf.Proxies[ProxyDirect.Name()]}
+		rule := direct
+		proxy := []*ConfProxy{c.conf.Proxies[ProxyDirect.Name()]}
+		c.addCachedHost(hostPort, rule, proxy)
+		return rule, proxy
 	}
+	c.addCachedHost(hostPort, nil, nil)
 	return nil, nil
+}
+
+func (c *Config) addCachedHost(hostPort string, rule *ConfRule, proxy []*ConfProxy) {
+	c.hostsCacheMutex.Lock()
+	defer c.hostsCacheMutex.Unlock()
+	c.hostsCache[hostPort] = &HostCache{rule, proxy}
+}
+
+func (c *Config) getCachedHost(hostPort string) (*HostCache, bool) {
+	c.hostsCacheMutex.RLock()
+	defer c.hostsCacheMutex.RUnlock()
+	if hc, ok := c.hostsCache[hostPort]; ok {
+		return hc, true
+	}
+	return nil, false
 }
 
 func (c *Config) resolve(url, host string, rule *ConfRule) []*ConfProxy {
@@ -789,23 +829,26 @@ func (pt ProxyType) Value() int {
 }
 
 type Conf struct {
-	Bind           string
-	Port           int
-	Verbose        bool
-	Debug          bool
-	Trace          bool
-	Proxies        map[string]*ConfProxy
-	Credentials    map[string]*ConfCred
-	Domains        map[string]*string
-	Rules          []*ConfRule
-	pacProxy       string
-	Krb5           string
-	ConnectTimeout int `yaml:"connectTimeout"`
-	IdleTimeout    int `yaml:"idleTimeout"`
-	CloseTimeout   int `yaml:"closeTimeout"`
-	Check          *bool
-	Update         bool
-	Restart        bool
+	Bind                        string
+	Port                        int
+	Verbose                     bool
+	Debug                       bool
+	Trace                       bool
+	Proxies                     map[string]*ConfProxy
+	Credentials                 map[string]*ConfCred
+	Domains                     map[string]*string
+	Rules                       []*ConfRule
+	pacProxy                    string
+	Krb5                        string
+	ConnectTimeout              int `yaml:"connectTimeout"`
+	IdleTimeout                 int `yaml:"idleTimeout"`
+	CloseTimeout                int `yaml:"closeTimeout"`
+	Check                       *bool
+	Update                      bool
+	Restart                     bool
+	Experimental                string // space/comma separated list of features
+	experimentalConnectionPools bool   // add a connection pool for http
+	experimentalHostsCache      bool   // add a hosts cache for proxy lookup - fine grained url lookup is then disabled
 }
 
 type ConfCred struct {
@@ -834,10 +877,10 @@ type ConfProxy struct {
 	pacRegex    *ConfRegex
 	Url         *string
 	pacJs       *string
-	proxy       string
-	pacProxy    *string
-	isUsed      bool
-	pacRuntime  *PacExecutor
+	// proxy       string
+	pacProxy   *string
+	isUsed     bool
+	pacRuntime *PacExecutor
 }
 
 type ConfRule struct {

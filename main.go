@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/jcmturner/gokrb5/v8/client"
 	"io"
 	"net/http"
 	"os"
@@ -16,6 +15,8 @@ import (
 	"syscall"
 	"text/template"
 	"time"
+
+	"github.com/jcmturner/gokrb5/v8/client"
 )
 
 var VersionValue = ""
@@ -395,7 +396,7 @@ func start() {
 
 func update(proxy *Proxy) {
 	// check for updates ?
-	config := proxy.safeGetConfig()
+	config := proxy.getConfig()
 	conf := config.conf
 	if conf.Check != nil && *conf.Check == false {
 		return

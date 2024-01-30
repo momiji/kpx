@@ -6,14 +6,15 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/palantir/stacktrace"
-	netproxy "golang.org/x/net/proxy"
 	"io"
 	"net"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/palantir/stacktrace"
+	netproxy "golang.org/x/net/proxy"
 )
 
 type Process struct {
@@ -37,7 +38,7 @@ func NewProcess(proxy *Proxy, conn net.Conn) *Process {
 		logTrace(ti, "create process")
 	}
 	return &Process{
-		config:      proxy.safeGetConfig(),
+		config:      proxy.getConfig(),
 		proxy:       proxy,
 		conn:        NewTimedConn(conn, newTraceInfo(reqId, "client")),
 		reqId:       reqId,
@@ -55,7 +56,7 @@ func (p *Process) process() {
 	}
 	// loop
 	var proxyChannel *ProxyRequest
-	for !p.proxy.forceStop.IsSet() {
+	for !p.proxy.stopped() {
 		// we don't reuse the proxyChannel as the target can change,
 		// however we use a pool to reuse connection once target is identified
 		proxyChannel = p.processChannel(clientChannel, nil)

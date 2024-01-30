@@ -2,20 +2,21 @@ package kpx
 
 import (
 	"fmt"
-	"github.com/dop251/goja"
-	"github.com/palantir/stacktrace"
 	"math/big"
 	"net"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/dop251/goja"
+	"github.com/palantir/stacktrace"
 )
 
 type PacExecutor struct {
 	js      string
 	program *goja.Program
-	pool    sync.Pool
+	pool    *sync.Pool
 }
 
 func NewPac(pacJs string) (*PacExecutor, error) {
@@ -33,6 +34,7 @@ return FindProxyForURL(url,host);
 	return &PacExecutor{
 		js:      js,
 		program: program,
+		pool:    &sync.Pool{},
 	}, nil
 }
 

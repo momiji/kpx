@@ -10,6 +10,7 @@
 - **internally developed**, allowing to add features when necessary, like **proxy failover**, **regex rules**, **password caching**, **PAC support**, ...
 - **multi-platform binaries**, for Windows, Linux and MacOS
 - support automatic **update** and **restart** when configured
+- experimental features like `connection-pools` (reuse http connections when possible) and `hosts-cache` (cache proxy lookup result by host:port, incompatible with url matching)
 
 Alternatives tools that can be used:
 

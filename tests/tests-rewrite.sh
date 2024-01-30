@@ -1,6 +1,8 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 
+( cd .. && make )
+
 check() {
   echo -n "rewrite ($1) $*: "
   shift

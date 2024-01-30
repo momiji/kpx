@@ -3,51 +3,63 @@ package kpx
 import (
 	"container/list"
 	"fmt"
-	"github.com/fsnotify/fsnotify"
-	"github.com/palantir/stacktrace"
 	"math"
 	"net"
 	"os"
 	"path"
 	"sync"
-	"sync/atomic"
 	"time"
-	"unsafe"
+
+	"github.com/fsnotify/fsnotify"
+	"github.com/palantir/stacktrace"
 )
 
 type Proxy struct {
-	unsafeConfig  *Config
-	configPtr     *unsafe.Pointer
-	forceStop     *AtomicBool
-	newRequestId  *AtomicInt
-	requestsCount *AtomicInt
-	kerberos      *KerberosStore
-	krbClients    map[string]*KerberosClient
-	lastLoad      time.Time
-	loadCounter   *AtomicInt
-	reloadEvent   *ManualResetEvent
-	fixWatchEvent *ManualResetEvent
-	connPool      map[string]*list.List
-	poolMutex     sync.Mutex
+	config        *Config               // not atomic, used for get/set, no conditionall update
+	forceStop     bool                  // not atomic - used only for get/set, no conditional update
+	newRequestId  *AtomicInt            // atomic - used in each process
+	requestsCount *AtomicInt            // atomic - used in each connection
+	kerberos      *KerberosStore        // not atomic - used only for get/set, no conditional update - initialized once
+	lastLoad      time.Time             // not atomic - used only for get/set in one coroutine
+	loadCounter   *AtomicInt            // atomic - used in each process to test if config has been updated
+	reloadEvent   *ManualResetEvent     //
+	fixWatchEvent *ManualResetEvent     //
+	connPool      map[string]*list.List // must be synced - used in each process
+	poolMutex     sync.Mutex            // atomic - used in each process
+	// krbClients    map[string]*KerberosClient //
+	// configPtr     *unsafe.Pointer
 }
 
-func (p *Proxy) safeGetConfig() *Config {
-	return (*Config)(atomic.LoadPointer(p.configPtr))
-
+func (p *Proxy) getConfig() *Config {
+	// return (*Config)(atomic.LoadPointer(p.configPtr))
+	return p.config
 }
-func (p *Proxy) safeSetConfig(config *Config) {
-	atomic.StorePointer(p.configPtr, unsafe.Pointer(config))
+
+func (p *Proxy) setConfig(config *Config) {
+	// atomic.StorePointer(p.configPtr, unsafe.Pointer(config))
+	// update config before incrementing counter so we're sure new process will use new config after it has been set
+	p.config = config
 	p.loadCounter.IncrementAndGet(1)
 	trace = config.conf.Trace
 	debug = config.conf.Debug
+	features := ""
+	if config.conf.experimentalConnectionPools {
+		features += "," + EXPERIMENTAL_CONNETION_POOLS
+	}
+	if config.conf.experimentalHostsCache {
+		features += "," + EXPERIMENTAL_HOSTS_CACHE
+	}
+	if features != "" {
+		logInfo("[-] Experimental features: " + features[1:])
+	}
 }
 
 func (p *Proxy) init() error {
-	p.forceStop = NewAtomicBool(false)
+	p.forceStop = false
 	p.newRequestId = NewAtomicInt(0)
 	p.requestsCount = NewAtomicInt(0)
-	p.krbClients = make(map[string]*KerberosClient)
-	p.configPtr = (*unsafe.Pointer)(unsafe.Pointer(&p.unsafeConfig))
+	// p.krbClients = make(map[string]*KerberosClient)
+	// p.configPtr = (*unsafe.Pointer)(unsafe.Pointer(&p.unsafeConfig))
 	p.loadCounter = NewAtomicInt(0)
 	p.reloadEvent = NewManualResetEvent(false)
 	p.fixWatchEvent = NewManualResetEvent(false)
@@ -55,6 +67,7 @@ func (p *Proxy) init() error {
 	return nil
 }
 
+// Initial loading
 func (p *Proxy) load() error {
 	// load config
 	if options.Config != "" {
@@ -75,7 +88,7 @@ func (p *Proxy) load() error {
 	if err != nil {
 		return stacktrace.Propagate(err, "unable to create config")
 	}
-	p.safeSetConfig(config)
+	p.setConfig(config)
 	// ask missing credentials
 	err = config.askCredentials()
 	if err != nil {
@@ -189,7 +202,7 @@ func (p *Proxy) reload() {
 		logInfo("[-] Error while reloading configuration: %s", err)
 		return
 	}
-	oldConfig := p.safeGetConfig()
+	oldConfig := p.getConfig()
 	// test if we can hot-reload - no need for more credentials
 	for _, cred := range newConfig.conf.Credentials {
 		// start by copying old credentials
@@ -212,11 +225,11 @@ func (p *Proxy) reload() {
 	}
 	logInfo("[-] Hot-reload of the configuration succeeded")
 	// replace current config with the new one
-	p.safeSetConfig(newConfig)
+	p.setConfig(newConfig)
 }
 
 func (p *Proxy) run() error {
-	config := p.safeGetConfig()
+	config := p.getConfig()
 	ln, err := net.Listen("tcp4", fmt.Sprint(config.conf.Bind, ":", config.conf.Port))
 	if err != nil {
 		return stacktrace.Propagate(err, "unable to listen to %s:%d", config.conf.Bind, config.conf.Port)
@@ -251,7 +264,7 @@ func (p *Proxy) run() error {
 			continue
 		}
 		ConfigureConn(conn)
-		if p.forceStop.IsSet() {
+		if p.stopped() {
 			_ = conn.Close() // force closing client, ignore any error
 			break
 		}
@@ -275,13 +288,13 @@ func (p *Proxy) run() error {
 }
 
 func (p *Proxy) stop() {
-	p.forceStop.Set()
+	p.forceStop = true
 	logDestroy()
 	os.Exit(1)
 }
 
 func (p *Proxy) stopped() bool {
-	return p.forceStop.IsSet()
+	return p.forceStop
 }
 
 // generate a new kerberos ticket, using a new client if not yet cached per realm/username/password
@@ -311,35 +324,37 @@ type PooledConnectionInfo struct {
 
 func (p *Proxy) newPooledConn(dialer *net.Dialer, network string, proxy string, host string, context string, reqId int32) (bool, *PooledConnectionInfo, error) {
 	key := network + "/" + proxy + "/" + context + "/" + host
-	p.poolMutex.Lock()
-	defer p.poolMutex.Unlock()
-	var items *list.List
-	if l, ok := p.connPool[key]; ok {
-		items = l
-	} else {
-		l = list.New()
-		p.connPool[key] = l
-		items = l
-	}
-	for {
-		item := items.Front()
-		if item == nil {
-			break
-		}
-		items.Remove(item)
-		pc := item.Value.(*PooledConnection)
-		if pc.timeout.After(time.Now()) {
-			if trace {
-				logInfo("(%d) reusing connection %d from pool", reqId, pc.reqId)
-			}
-			_ = pc.conn.SetDeadline(time.Time{})
-			pc.conn.Reset(reqId)
-			return true, &PooledConnectionInfo{key, pc.conn, pc.reqId}, nil
+	if p.config.conf.experimentalConnectionPools {
+		p.poolMutex.Lock()
+		defer p.poolMutex.Unlock()
+		var items *list.List
+		if l, ok := p.connPool[key]; ok {
+			items = l
 		} else {
-			_ = pc.conn.Close()
+			l = list.New()
+			p.connPool[key] = l
+			items = l
 		}
-		if trace {
-			logInfo("(%d) removed old connection %d from pool", reqId, pc.reqId)
+		for {
+			item := items.Front()
+			if item == nil {
+				break
+			}
+			items.Remove(item)
+			pc := item.Value.(*PooledConnection)
+			if pc.timeout.After(time.Now()) {
+				if trace {
+					logInfo("(%d) reusing connection %d from pool", reqId, pc.reqId)
+				}
+				_ = pc.conn.SetDeadline(time.Time{})
+				pc.conn.Reset(reqId)
+				return true, &PooledConnectionInfo{key, pc.conn, pc.reqId}, nil
+			} else {
+				_ = pc.conn.Close()
+			}
+			if trace {
+				logInfo("(%d) removed old connection %d from pool", reqId, pc.reqId)
+			}
 		}
 	}
 	// create a new connection
@@ -348,23 +363,25 @@ func (p *Proxy) newPooledConn(dialer *net.Dialer, network string, proxy string, 
 }
 
 func (p *Proxy) pushConnToPool(info *PooledConnectionInfo, reqId int32) {
-	if trace {
-		logInfo("(%d) pushing connection %d to pool for later reuse", reqId, info.reqId)
-	}
-	p.poolMutex.Lock()
-	defer p.poolMutex.Unlock()
-	poolTimeout := time.Now().Add(POOL_CLOSE_TIMEOUT * time.Second)
-	closeTimeout := poolTimeout.Add(POOL_CLOSE_TIMEOUT_ADD * time.Second)
-	if err := info.conn.SetDeadline(closeTimeout); err == nil {
-		var items *list.List
-		if l, ok := p.connPool[info.key]; ok {
-			items = l
-		} else {
-			l = list.New()
-			p.connPool[info.key] = l
-			items = l
+	if p.config.conf.experimentalConnectionPools {
+		if trace {
+			logInfo("(%d) pushing connection %d to pool for later reuse", reqId, info.reqId)
 		}
-		items.PushBack(&PooledConnection{conn: info.conn, timeout: poolTimeout, reqId: info.reqId})
+		p.poolMutex.Lock()
+		defer p.poolMutex.Unlock()
+		poolTimeout := time.Now().Add(POOL_CLOSE_TIMEOUT * time.Second)
+		closeTimeout := poolTimeout.Add(POOL_CLOSE_TIMEOUT_ADD * time.Second)
+		if err := info.conn.SetDeadline(closeTimeout); err == nil {
+			var items *list.List
+			if l, ok := p.connPool[info.key]; ok {
+				items = l
+			} else {
+				l = list.New()
+				p.connPool[info.key] = l
+				items = l
+			}
+			items.PushBack(&PooledConnection{conn: info.conn, timeout: poolTimeout, reqId: info.reqId})
+		}
 	}
 }
 

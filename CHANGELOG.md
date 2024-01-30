@@ -1,4 +1,9 @@
 
+## [1.6.0](https://github.com/momiji/kpx/compare/v1.5.5...v1.6.0) (2024-01-30)
+
+* feat: experimental connection-pools and hosts-cache [4bbd1caa](https://github.com/momiji/kpx/commit/4bbd1caabd234103f29e3419e733284344de2ba9)
+
+
 ## [1.5.5](https://github.com/momiji/kpx/compare/v1.5.4...v1.5.5) (2023-11-22)
 
 * fix: invalid build script [49910222](https://github.com/momiji/kpx/commit/49910222995f12e068c7a70fa9fe02b4f55ba220)

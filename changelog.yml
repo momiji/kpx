@@ -1,3 +1,39 @@
+- semver: 1.6.0
+  date: 2024-01-30T11:59:10.591941705+01:00
+  packager: ""
+  changes:
+    - commit: 4bbd1caabd234103f29e3419e733284344de2ba9
+      note: 'feat: experimental connection-pools and hosts-cache'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: a4c91008529ee44a13c1fedcbfe02311de475233
+      note: 'docs: typos'
+      author:
+        name: xtian
+        email: christian.bourgeois@socgen.com
+      committer:
+        name: xtian
+        email: christian.bourgeois@socgen.com
+    - commit: 3eb9101f47e90e197a352d68920ae88120f5d33b
+      note: 'docs: typos'
+      author:
+        name: xtian
+        email: christian.bourgeois@socgen.com
+      committer:
+        name: xtian
+        email: christian.bourgeois@socgen.com
+    - commit: 1f3c8f94810297b847c3fe4d0895cd687f935f06
+      note: 'docs: additional notes about PAC and authentication'
+      author:
+        name: xtian
+        email: christian.bourgeois@socgen.com
+      committer:
+        name: xtian
+        email: christian.bourgeois@socgen.com
 - semver: 1.5.5
   date: 2023-11-22T10:24:58.749103523+01:00
   packager: ""

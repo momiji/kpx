@@ -1,3 +1,15 @@
+- semver: 1.6.1
+  date: 2024-01-30T13:15:42.010525531+01:00
+  packager: ""
+  changes:
+    - commit: f247a232568436d8f2cbbaf1b73272b42c015c60
+      note: 'build: upgrade dependencies'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
 - semver: 1.6.0
   date: 2024-01-30T11:59:10.591941705+01:00
   packager: ""

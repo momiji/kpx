@@ -1,4 +1,8 @@
 
+## [1.6.1](https://github.com/momiji/kpx/compare/v1.6.0...v1.6.1) (2024-01-30)
+
+
+
 ## [1.6.0](https://github.com/momiji/kpx/compare/v1.5.5...v1.6.0) (2024-01-30)
 
 * feat: experimental connection-pools and hosts-cache [4bbd1caa](https://github.com/momiji/kpx/commit/4bbd1caabd234103f29e3419e733284344de2ba9)

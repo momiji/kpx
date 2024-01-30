@@ -209,7 +209,7 @@ func (s asciiString) ToNumber() Value {
 }
 
 func (s asciiString) ToObject(r *Runtime) *Object {
-	return r._newString(s, r.global.StringPrototype)
+	return r._newString(s, r.getStringPrototype())
 }
 
 func (s asciiString) SameAs(other Value) bool {
@@ -258,7 +258,7 @@ func (s asciiString) StrictEquals(other Value) bool {
 }
 
 func (s asciiString) baseObject(r *Runtime) *Object {
-	ss := r.stringSingleton
+	ss := r.getStringSingleton()
 	ss.value = s
 	ss.setLength()
 	return ss.val
@@ -313,6 +313,9 @@ func (s asciiString) CompareTo(other String) int {
 func (s asciiString) index(substr String, start int) int {
 	a, u := devirtualizeString(substr)
 	if u == nil {
+		if start > len(s) {
+			return -1
+		}
 		p := strings.Index(string(s[start:]), string(a))
 		if p >= 0 {
 			return p + start

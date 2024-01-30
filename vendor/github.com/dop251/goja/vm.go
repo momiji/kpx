@@ -2475,7 +2475,7 @@ func (_pushArrayItem) exec(vm *vm) {
 	if arr.length < math.MaxUint32 {
 		arr.length++
 	} else {
-		vm.throw(vm.r.newError(vm.r.global.RangeError, "Invalid array length"))
+		vm.throw(vm.r.newError(vm.r.getRangeError(), "Invalid array length"))
 		return
 	}
 	val := vm.stack[vm.sp-1]
@@ -2497,7 +2497,7 @@ func (_pushArraySpread) exec(vm *vm) {
 		if arr.length < math.MaxUint32 {
 			arr.length++
 		} else {
-			vm.throw(vm.r.newError(vm.r.global.RangeError, "Invalid array length"))
+			vm.throw(vm.r.newError(vm.r.getRangeError(), "Invalid array length"))
 			return
 		}
 		arr.values = append(arr.values, val)
@@ -2545,7 +2545,7 @@ type newRegexp struct {
 }
 
 func (n *newRegexp) exec(vm *vm) {
-	vm.push(vm.r.newRegExpp(n.pattern.clone(), n.src, vm.r.global.RegExpPrototype).val)
+	vm.push(vm.r.newRegExpp(n.pattern.clone(), n.src, vm.r.getRegExpPrototype()).val)
 	vm.pc++
 }
 
@@ -3828,7 +3828,7 @@ func (n *newAsyncArrowFunc) exec(vm *vm) {
 }
 
 func (vm *vm) alreadyDeclared(name unistring.String) Value {
-	return vm.r.newError(vm.r.global.SyntaxError, "Identifier '%s' has already been declared", name)
+	return vm.r.newError(vm.r.getSyntaxError(), "Identifier '%s' has already been declared", name)
 }
 
 func (vm *vm) checkBindVarsGlobal(names []unistring.String) {
@@ -4437,28 +4437,20 @@ var throw _throw
 
 func (_throw) exec(vm *vm) {
 	v := vm.stack[vm.sp-1]
-	var ex *Exception
+	ex := &Exception{
+		val: v,
+	}
+
 	if o, ok := v.(*Object); ok {
 		if e, ok := o.self.(*errorObject); ok {
 			if len(e.stack) > 0 {
-				frame0 := e.stack[0]
-				// If the Error was created immediately before throwing it (i.e. 'throw new Error(....)')
-				// avoid capturing the stack again by the reusing the stack from the Error.
-				// These stacks would be almost identical and the difference doesn't matter for debugging.
-				if frame0.prg == vm.prg && vm.pc-frame0.pc == 1 {
-					ex = &Exception{
-						val:   v,
-						stack: e.stack,
-					}
-				}
+				ex.stack = e.stack
 			}
 		}
 	}
-	if ex == nil {
-		ex = &Exception{
-			val:   v,
-			stack: vm.captureStack(make([]StackFrame, 0, len(vm.callStack)+1), 0),
-		}
+
+	if ex.stack == nil {
+		ex.stack = vm.captureStack(make([]StackFrame, 0, len(vm.callStack)+1), 0)
 	}
 
 	if ex = vm.handleThrow(ex); ex != nil {
@@ -4598,7 +4590,7 @@ func (formalArgs createArgsMapped) exec(vm *vm) {
 	}
 
 	args._putProp("callee", vm.stack[vm.sb-1], true, false, true)
-	args._putSym(SymIterator, valueProp(vm.r.global.arrayValues, true, false, true))
+	args._putSym(SymIterator, valueProp(vm.r.getArrayValues(), true, false, true))
 	vm.push(v)
 	vm.pc++
 }
@@ -4623,8 +4615,8 @@ func (formalArgs createArgsUnmapped) exec(vm *vm) {
 	}
 
 	args._putProp("length", intToValue(int64(vm.args)), true, false, true)
-	args._put("callee", vm.r.global.throwerProperty)
-	args._putSym(SymIterator, valueProp(vm.r.global.arrayValues, true, false, true))
+	args._put("callee", vm.r.newThrowerProperty(false))
+	args._putSym(SymIterator, valueProp(vm.r.getArrayValues(), true, false, true))
 	vm.push(args.val)
 	vm.pc++
 }
@@ -5057,7 +5049,7 @@ func (c *newClass) create(protoParent, ctorParent *Object, vm *vm, derived bool)
 }
 
 func (c *newClass) exec(vm *vm) {
-	proto, cls := c.create(vm.r.global.ObjectPrototype, vm.r.global.FunctionPrototype, vm, false)
+	proto, cls := c.create(vm.r.global.ObjectPrototype, vm.r.getFunctionPrototype(), vm, false)
 	sp := vm.sp
 	vm.stack.expand(sp + 1)
 	vm.stack[sp] = proto
@@ -5086,7 +5078,7 @@ func (c *newDerivedClass) exec(vm *vm) {
 			superClass = sc
 		}
 	} else {
-		superClass = vm.r.global.FunctionPrototype
+		superClass = vm.r.getFunctionPrototype()
 	}
 
 	proto, cls := c.create(protoParent, superClass, vm, true)
@@ -5103,7 +5095,7 @@ type newStaticFieldInit struct {
 }
 
 func (c *newStaticFieldInit) exec(vm *vm) {
-	f := vm.r.newClassFunc("", 0, vm.r.global.FunctionPrototype, false)
+	f := vm.r.newClassFunc("", 0, vm.r.getFunctionPrototype(), false)
 	if c.numPrivateFields > 0 || c.numPrivateMethods > 0 {
 		vm.createPrivateType(f, c.numPrivateFields, c.numPrivateMethods)
 	}
@@ -5117,7 +5109,7 @@ func (vm *vm) loadThis(v Value) {
 	if v != nil {
 		vm.push(v)
 	} else {
-		vm.throw(vm.r.newError(vm.r.global.ReferenceError, "Must call super constructor in derived class before accessing 'this'"))
+		vm.throw(vm.r.newError(vm.r.getReferenceError(), "Must call super constructor in derived class before accessing 'this'"))
 		return
 	}
 	vm.pc++
@@ -5202,7 +5194,7 @@ func (resolveThisDynamic) exec(vm *vm) {
 			}
 		}
 	}
-	panic(vm.r.newError(vm.r.global.ReferenceError, "Compiler bug: 'this' reference is not found in resolveThisDynamic"))
+	panic(vm.r.newError(vm.r.getReferenceError(), "Compiler bug: 'this' reference is not found in resolveThisDynamic"))
 }
 
 type defineComputedKey int
@@ -5464,15 +5456,15 @@ func (vm *vm) exceptionFromValue(x interface{}) *Exception {
 		}
 	case referenceError:
 		ex = &Exception{
-			val: vm.r.newError(vm.r.global.ReferenceError, string(x1)),
+			val: vm.r.newError(vm.r.getReferenceError(), string(x1)),
 		}
 	case rangeError:
 		ex = &Exception{
-			val: vm.r.newError(vm.r.global.RangeError, string(x1)),
+			val: vm.r.newError(vm.r.getRangeError(), string(x1)),
 		}
 	case syntaxError:
 		ex = &Exception{
-			val: vm.r.newError(vm.r.global.SyntaxError, string(x1)),
+			val: vm.r.newError(vm.r.getSyntaxError(), string(x1)),
 		}
 	default:
 		/*

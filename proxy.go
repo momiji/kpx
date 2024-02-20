@@ -112,10 +112,18 @@ func (p *Proxy) loadKerberos(config *Config) error {
 	// initialize kerberos clients based on user/realm
 	for _, proxy := range config.conf.Proxies {
 		if *proxy.Type == ProxyKerberos && proxy.cred != nil && proxy.cred.isUsed {
-			// try to log in
-			_, err := p.kerberos.safeTryLogin(*proxy.cred.Login, *proxy.Realm, *proxy.cred.Password, false)
-			if err != nil {
-				return stacktrace.Propagate(err, "unable to login to kerberos")
+			if proxy.cred.isNative {
+				// try to log in with kerberos
+				err := NativeKerberos.SafeTryLogin()
+				if err != nil {
+					return stacktrace.Propagate(err, "unable to login to native os kerberos")
+				}
+			} else {
+				// try to log in with username/password
+				_, err := p.kerberos.safeTryLogin(*proxy.cred.Login, *proxy.Realm, *proxy.cred.Password, false)
+				if err != nil {
+					return stacktrace.Propagate(err, "unable to login to kerberos")
+				}
 			}
 		}
 	}
@@ -216,7 +224,7 @@ func (p *Proxy) reload() {
 			}
 		}
 		// then verify if it used it must have a login/password
-		if cred.isUsed {
+		if cred.isUsed && !cred.isNative {
 			if cred.Login == nil || cred.Password == nil {
 				logInfo("[-] Could not Hot-reload the configuration as it requires new credentials")
 				return
@@ -298,11 +306,23 @@ func (p *Proxy) stopped() bool {
 }
 
 // generate a new kerberos ticket, using a new client if not yet cached per realm/username/password
-func (p *Proxy) generateKerberosNegotiate(username string, realm string, password string, host string) (*string, error) {
+func (p *Proxy) generateKerberosNegotiate(username string, realm string, password string, protocol string, host string) (*string, error) {
 	if p.stopped() {
 		return nil, nil
 	}
-	token, err := p.kerberos.safeGetToken(username, realm, password, host)
+	token, err := p.kerberos.safeGetToken(username, realm, password, protocol, host)
+	if token == nil {
+		return nil, stacktrace.Propagate(err, "unable to get kerberos token")
+	}
+	auth := "Negotiate " + *token
+	return &auth, nil
+}
+
+func (p *Proxy) generateKerberosNative(protocol string, host string) (*string, error) {
+	if p.stopped() {
+		return nil, nil
+	}
+	token, err := NativeKerberos.SafeGetToken(protocol, host)
 	if token == nil {
 		return nil, stacktrace.Propagate(err, "unable to get kerberos token")
 	}

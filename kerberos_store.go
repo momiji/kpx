@@ -58,9 +58,9 @@ func (ks *KerberosStore) safeTryLogin(username, realm, password string, force bo
 		ks.safeRemoveClient(key)
 	}
 	// get existing client
-	client := ks.safeGetClient(key)
-	if client != nil {
-		return client, nil
+	kcl := ks.safeGetClient(key)
+	if kcl != nil {
+		return kcl, nil
 	}
 	// create new client
 	krbClient := ks.kerberos.NewWithPassword(username, realm, password)
@@ -69,26 +69,26 @@ func (ks *KerberosStore) safeTryLogin(username, realm, password string, force bo
 		if e, ok := err.(krberror.Krberror); ok {
 			return nil, stacktrace.Propagate(err, "Invalid login/password for '%s@%s'\n%s\n%s", username, realm, e.RootCause, strings.Join(e.EText, "\n"))
 		}
-		return nil, stacktrace.Propagate(err, "Invalid login/password for '%s@%s': %v", username, realm, err)
+		return nil, stacktrace.Propagate(err, "Invalid login/password for '%s@%s'", username, realm)
 	}
 	// save client
-	client = NewKerberosClient(krbClient)
-	ks.safeSaveClient(key, client)
-	return client, nil
+	kcl = NewKerberosClient(krbClient)
+	ks.safeSaveClient(key, kcl)
+	return kcl, nil
 }
 
-func (ks *KerberosStore) safeGetToken(username, realm, password, host string) (*string, error) {
-	client, err := ks.safeTryLogin(username, realm, password, false)
+func (ks *KerberosStore) safeGetToken(username, realm, password, protocol string, host string) (*string, error) {
+	kcl, err := ks.safeTryLogin(username, realm, password, false)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "unable to login to kerberos")
 	}
-	token, err := client.safeGetToken(host)
+	token, err := kcl.safeGetToken(protocol, host)
 	if err != nil {
-		client, err := ks.safeTryLogin(username, realm, password, true)
+		kcl, err = ks.safeTryLogin(username, realm, password, true)
 		if err != nil {
 			return nil, stacktrace.Propagate(err, "unable to login to kerberos")
 		}
-		token, err = client.safeGetToken(host)
+		token, err = kcl.safeGetToken(protocol, host)
 		if err != nil {
 			return nil, stacktrace.Propagate(err, "unable to get kerberos token")
 		}
@@ -116,10 +116,10 @@ func NewKerberosClient(krbClient *client.Client) *KerberosClient {
 	}
 }
 
-func (kc *KerberosClient) safeGetToken(host string) (*string, error) {
+func (kc *KerberosClient) safeGetToken(protocol string, host string) (*string, error) {
 	kc.mutex.Lock()
 	defer kc.mutex.Unlock()
-	spn := "HTTP/" + host
+	spn := protocol + "/" + host
 	s := spnego.SPNEGOClient(kc.krbClient, spn)
 	err := s.AcquireCred()
 	if err != nil {

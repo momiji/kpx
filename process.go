@@ -250,21 +250,22 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 				if err == nil {
 					userDetails := strings.SplitN(string(credentials), ":", 2)
 					if len(userDetails) == 2 {
-						switch *firstProxy.Type {
-						case ProxyKerberos:
+						switch {
+						case *firstProxy.Type == ProxyKerberos:
+							// note that it is not needed to check isNative as there is no cred for per-user auth
 							authorizationContext = p.hash("krb:%s/%s/%s/%s", userDetails[0], *firstProxy.Realm, userDetails[1], *firstProxy.Host)
-							authorizationFunc = func(username string, realm string, password string, host string) func() (*string, error) {
+							authorizationFunc = func(username string, realm string, password string, protocol string, host string) func() (*string, error) {
 								return func() (*string, error) {
 									// hide error, as this is not an unrecoverable error
-									auth, err := p.proxy.generateKerberosNegotiate(username, realm, password, host)
+									auth, err := p.proxy.generateKerberosNegotiate(username, realm, password, protocol, host)
 									if err != nil {
 										logError("%s Failed to generate authenticate token: %v", p.logPrefix, err)
 									}
 									return auth, nil
 								}
-							}(userDetails[0], *firstProxy.Realm, userDetails[1], *firstProxy.Host)
+							}(userDetails[0], *firstProxy.Realm, userDetails[1], *firstProxy.Spn, *firstProxy.Host)
 							authenticated = true
-						case ProxyBasic:
+						case *firstProxy.Type == ProxyBasic:
 							authorizationContext = p.hash("basic:%s", *proxyAuthorization)
 							authorizationFunc = func(auth *string) func() (*string, error) {
 								return func() (*string, error) {
@@ -272,7 +273,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 								}
 							}(proxyAuthorization)
 							authenticated = true
-						case ProxySocks:
+						case *firstProxy.Type == ProxySocks:
 							credentialString := string(credentials)
 							authorizationContext = p.hash("socks:%s", credentialString)
 							authorizationFunc = func(auth *string) func() (*string, error) {
@@ -305,19 +306,33 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 		}
 		authenticated := false
 		switch {
-		case *firstProxy.Type == ProxyKerberos:
+		case *firstProxy.Type == ProxyKerberos && !firstProxy.cred.isNative:
 			authorizationContext = p.hash("krb:%s/%s/%s/%s", *firstProxy.cred.Login, *firstProxy.Realm, *firstProxy.cred.Password, *firstProxy.Host)
-			authorizationFunc = func(username string, realm string, password string, host string) func() (*string, error) {
+			authorizationFunc = func(username string, realm string, password string, protocol string, host string) func() (*string, error) {
 				return func() (*string, error) {
 					// don't hide error, this is an unrecoverable error
-					auth, err := p.proxy.generateKerberosNegotiate(username, realm, password, host)
+					auth, err := p.proxy.generateKerberosNegotiate(username, realm, password, protocol, host)
 					if err != nil {
 						logError("%s Failed to generate authenticate token: %v", p.logPrefix, err)
 						return nil, err
 					}
 					return auth, nil
 				}
-			}(*firstProxy.cred.Login, *firstProxy.Realm, *firstProxy.cred.Password, *firstProxy.Host)
+			}(*firstProxy.cred.Login, *firstProxy.Realm, *firstProxy.cred.Password, *firstProxy.Spn, *firstProxy.Host)
+			authenticated = true
+		case *firstProxy.Type == ProxyKerberos && firstProxy.cred.isNative:
+			authorizationContext = p.hash("native:%s", *firstProxy.Host)
+			authorizationFunc = func(protocol string, host string) func() (*string, error) {
+				return func() (*string, error) {
+					// don't hide error, this is an unrecoverable error
+					auth, err := p.proxy.generateKerberosNative(protocol, host)
+					if err != nil {
+						logError("%s Failed to generate authenticate token: %v", p.logPrefix, err)
+						return nil, err
+					}
+					return auth, nil
+				}
+			}(*firstProxy.Spn, *firstProxy.Host)
 			authenticated = true
 		case *firstProxy.Type == ProxyBasic:
 			basic := fmt.Sprintf("%s:%s", *firstProxy.cred.Login, *firstProxy.cred.Password)

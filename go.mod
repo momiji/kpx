@@ -5,6 +5,7 @@ go 1.20
 replace github.com/jcmturner/gokrb5/v8 v8.4.4 => github.com/momiji/gokrb5/v8 v8.4.4-x0
 
 require (
+	github.com/alexbrainman/sspi v0.0.0-20231016080023-1a75b4708caa
 	github.com/ccding/go-logging v0.0.0-20190618175518-0ac4cc1a6533
 	github.com/dop251/goja v0.0.0-20231027120936-b396bb4c349d
 	github.com/fsnotify/fsnotify v1.7.0

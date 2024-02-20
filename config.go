@@ -38,6 +38,8 @@ type HostCache struct {
 const EXPERIMENTAL_CONNETION_POOLS = "connection-pools"
 const EXPERIMENTAL_HOSTS_CACHE = "hosts-cache"
 
+const CREDENTIAL_KERBEROS = "kerberos"
+
 func NewConfig(name string) (*Config, error) {
 	var config = Config{
 		conf: Conf{
@@ -138,9 +140,10 @@ func (c *Config) readFromFile(filename string) error {
 		c.conf.Bind = h
 		c.conf.Port, _ = strconv.Atoi(p)
 	}
-	if options.User != "" && len(c.conf.Credentials) == 1 {
+	if options.User != "" {
 		for _, cred := range c.conf.Credentials {
-			if cred.Login == nil || *cred.Login != options.User {
+			// auto-fill missing login
+			if cred.Login == nil {
 				cred.Login = &options.User
 				cred.Password = nil
 			}
@@ -152,8 +155,8 @@ func (c *Config) readFromFile(filename string) error {
 func (c *Config) check() (err error) {
 	// check proxies
 	for name, proxy := range c.conf.Proxies {
-		if name == "" || name == ProxyDirect.Name() || name == ProxyNone.Name() {
-			return stacktrace.NewError("proxy names cannot be empty, 'direct' or 'none'")
+		if name == "" || name == ProxyDirect.Name() || name == ProxyNone.Name() || strings.HasPrefix(name, "$") {
+			return stacktrace.NewError("proxy names cannot be empty, 'direct', 'none' or start with a '$'")
 		}
 		if proxy.Type == nil {
 			return stacktrace.NewError("proxy '%s': all proxies must contain 'type' (kerberos,socks,basic,anonymous,pac)", name)
@@ -188,22 +191,25 @@ func (c *Config) check() (err error) {
 		}
 		if *proxy.Type == ProxyAnonymous || *proxy.Type == ProxyPac {
 			if proxy.Credential != nil {
-				return stacktrace.NewError("proxy '%s': all anonymous proxies must not contain 'credentials'", name)
+				return stacktrace.NewError("proxy '%s': all anonymous and pac proxies must not contain 'credential'", name)
 			}
 		}
-		if proxy.Credential != nil && *proxy.Credential != "" && c.conf.Credentials[*proxy.Credential] == nil {
+		if proxy.Credential != nil && *proxy.Credential != "" && *proxy.Credential != CREDENTIAL_KERBEROS && c.conf.Credentials[*proxy.Credential] == nil {
 			return stacktrace.NewError("proxy '%s': all proxies 'credential' must exist in 'credentials'", name)
 		}
 		for _, cred := range c.splitCredentials(proxy.Credentials) {
-			if c.conf.Credentials[cred] == nil {
+			if cred != CREDENTIAL_KERBEROS && c.conf.Credentials[cred] == nil {
 				return stacktrace.NewError("proxy '%s': all pac proxies credentials must exist in 'credentials'", name)
 			}
 		}
 	}
 	// check credentials
-	for name := range c.conf.Credentials {
-		if name == "" || strings.HasPrefix(name, "$") {
-			return stacktrace.NewError("credential name cannot be empty or start with '$'")
+	for name, cred := range c.conf.Credentials {
+		if name == "" || name == CREDENTIAL_KERBEROS || strings.HasPrefix(name, "$") {
+			return stacktrace.NewError("credential name cannot be empty, 'kerberos' or start with '$'")
+		}
+		if cred.Password != nil && cred.Login == nil {
+			return stacktrace.NewError("credential password cannot be set without login being set")
 		}
 	}
 	// check rules
@@ -262,21 +268,28 @@ func (c *Config) build() error {
 	// add none proxy
 	noneName := ProxyNone.Name()
 	noneType := ProxyNone
-	none := ConfProxy{
+	noneProxy := ConfProxy{
 		name:      &noneName,
 		Type:      &noneType,
 		typeValue: ProxyNone.Value(),
 	}
-	c.conf.Proxies[noneName] = &none
+	c.conf.Proxies[noneName] = &noneProxy
 	// add direct proxy
 	directName := ProxyDirect.Name()
 	directType := ProxyDirect
-	direct := ConfProxy{
+	directProxy := ConfProxy{
 		name:      &directName,
 		Type:      &directType,
 		typeValue: ProxyDirect.Value(),
 	}
-	c.conf.Proxies[directName] = &direct
+	c.conf.Proxies[directName] = &directProxy
+	// add native kerberos credential
+	kerberosName := CREDENTIAL_KERBEROS
+	kerberosCred := ConfCred{
+		name:     &kerberosName,
+		isNative: true,
+	}
+	c.conf.Credentials[kerberosName] = &kerberosCred
 	// build proxies
 	krb := 0
 	for name, proxy := range c.conf.Proxies {
@@ -362,14 +375,14 @@ func (c *Config) build() error {
 			httpClient := &http.Client{Timeout: 30 * time.Second}
 			get, err := httpClient.Get(*proxy.Url)
 			if err != nil {
-				return stacktrace.Propagate(err, "proxy '%s': unable to download pac, %v", *proxy.name, err)
+				return stacktrace.Propagate(err, "proxy '%s': unable to download pac", *proxy.name)
 			}
 			defer func(Body io.ReadCloser) {
 				_ = Body.Close()
 			}(get.Body)
 			jsb, err := io.ReadAll(get.Body)
 			if err != nil {
-				return stacktrace.Propagate(err, "proxy '%s': unable to download pac, %v", *proxy.name, err)
+				return stacktrace.Propagate(err, "proxy '%s': unable to download pac", *proxy.name)
 			}
 			proxy.pacJs = nil
 			// load js as unicode/utf-8
@@ -382,7 +395,7 @@ func (c *Config) build() error {
 					js = string(jsb2)
 					pacExecutor, err = NewPac(js)
 					if err != nil {
-						return stacktrace.Propagate(err, "proxy '%s': unable to create pac runtime, %v", *proxy.name, err)
+						return stacktrace.Propagate(err, "proxy '%s': unable to create pac runtime", *proxy.name)
 					}
 				}
 			}
@@ -542,7 +555,7 @@ func (c *Config) askCredentials() error {
 	logFlush()
 	var err error
 	for _, cred := range c.conf.Credentials {
-		if cred.isUsed && !cred.isPerUser {
+		if cred.isUsed && !cred.isPerUser && !cred.isNative {
 			message := fmt.Sprintf("Credential [%s] -", *cred.name)
 			if cred.isNull {
 				message = fmt.Sprintf("Proxy [%s] -", strings.SplitN(*cred.name, "-", 2)[1])
@@ -859,6 +872,7 @@ type ConfCred struct {
 	isNull    bool
 	isPerUser bool
 	isUsed    bool // set if is not nil, not per user and is used by a a rule => proxy
+	isNative  bool // set if using native kerberos implementation
 }
 
 type ConfProxy struct {

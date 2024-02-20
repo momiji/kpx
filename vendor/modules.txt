@@ -1,3 +1,8 @@
+# github.com/alexbrainman/sspi v0.0.0-20231016080023-1a75b4708caa
+## explicit; go 1.13
+github.com/alexbrainman/sspi
+github.com/alexbrainman/sspi/internal/common
+github.com/alexbrainman/sspi/negotiate
 # github.com/ccding/go-config-reader v0.0.0-20130817225950-8b6c2b50197f
 ## explicit
 github.com/ccding/go-config-reader/config

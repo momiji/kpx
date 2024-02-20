@@ -1,3 +1,5 @@
+github.com/alexbrainman/sspi v0.0.0-20231016080023-1a75b4708caa h1:LHTHcTQiSGT7VVbI0o4wBRNQIgn917usHWOd6VAffYI=
+github.com/alexbrainman/sspi v0.0.0-20231016080023-1a75b4708caa/go.mod h1:cEWa1LVoE5KvSD9ONXsZrj0z6KqySlCCNKHlLzbqAt4=
 github.com/ccding/go-config-reader v0.0.0-20130817225950-8b6c2b50197f h1:Yiszr5L3/DTI+28noTGXL7j8pI8No06SJNY6Q9z986E=
 github.com/ccding/go-config-reader v0.0.0-20130817225950-8b6c2b50197f/go.mod h1:NMD1eZz/onlX1/IsFSzyAG6nh0rq+ZmTsSW6V9LpZNU=
 github.com/ccding/go-logging v0.0.0-20190618175518-0ac4cc1a6533 h1:BrY5C6BgEo1U7s8w4XgFfYZbmNJ/ezzc0MTIGZAX4NQ=

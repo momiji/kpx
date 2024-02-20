@@ -6,6 +6,7 @@
 - **stop traffic** for specific url
 - **inject credential** for remote proxies, allowing to use proxy without setting credentials
 - support **kerberos** and **basic** credentials
+- support **kerberos native** authentication on Windows and Linux (and MacOS?)
 - support remote **http** and **socks** proxies
 - **internally developed**, allowing to add features when necessary, like **proxy failover**, **regex rules**, **password caching**, **PAC support**, ...
 - **multi-platform binaries**, for Windows, Linux and MacOS
@@ -107,7 +108,7 @@ proxies:
   pac-mkt:
     type: pac
     url: http://broproxycfg.int.world.company/ProxyPac/proxy.pac
-    credentials: user
+    credentials: kerberos   # use native OS kerberos
   pac-ret:
     type: pac
     url: http://broproxycfg.int.world.company/ProxyPac/proxy.pac
@@ -118,7 +119,7 @@ proxies:
     realm: EUR.MSD.WORLD.COMPANY
     host: proxy-mkt.int.world.company
     port: 8080
-    credential: user
+    credential: kerberos   # use native OS kerberos
     pac: proxy-mkt*
   ret:
     type: kerberos
@@ -192,12 +193,17 @@ proxies:
     type: pac
     url: http://broproxycfg.int.world.company/ProxyPac/proxy.pac
     credentials: user
-# another PAC proxy. verbosity can also be set at proxy level
+# another PAC proxy. verbosity can also be set at proxy level. multiple credentials can also be used if resolved proxy may use different credentiels
   pac-ret:
     type: pac
     url: http://broproxycfg.int.world.company/ProxyPac/proxy.pac
-    credentials: user
+    credentials: user user2
     verbose: true
+# another PAC proxy. native kerberos can also be used on Windows and Linux (and MacOS?) 
+  pac-krb:
+    type: pac
+    url: http://broproxycfg.int.world.company/ProxyPac/proxy.pac
+    credentials: kerberos
 # sample of kerberos proxy. 'pac' is used to get the kerberos realm in PAC proxies at runtime
   mkt:
     type: kerberos
@@ -215,12 +221,20 @@ proxies:
     port: 8080
     credential: user
     pac: proxy-sgt*
+  krb:
+    type: kerberos
+    spn: HTTP
+    realm: EUR.MSD.WORLD.COMPANY
+    host: proxy-krb.si.company
+    port: 8080
+    credential: kerberos
+    pac: proxy-krb*
 # sample of anonymous (no authentication) proxy. 'ssl' for HTTPS proxy
   net:
     type: anonymous
     host: 127.0.0.1
     port: 3128
-        ssl: false
+    ssl: false
 # sample of socks proxy
   nets:
     type: socks
@@ -246,8 +260,12 @@ proxies:
 credentials:
 # sample of credential. if no 'password', it will be asked on startup. the same for login
 # password can be provided as clear text, or encrypted using '-e' option
+# 'kerberos' is automatically created as native Windows/Linux/MacOS? kerberos
   user:
     login: a443939
+    password: encrypted:SECRET_KEY
+  user2:
+    login: USER_NAME
     password: encrypted:SECRET_KEY
 
 # list of rules to determine which proxy to use
@@ -309,7 +327,10 @@ Using PAC is a little tricky, these are a few things to know before using it:
 
 #### Kerberos configuration
 
-Using kerberos authentication is easy, and the `credential:` setting allows to specify which user login/password to use.
+Using kerberos authentication can be done in two ways:
+
+- using native OS kerberos where supported (Windows/Linux/MacOS?), by using `kerberos` as `proxy.credential` or `proxy.credentials` (PAC)
+- using login/password by using a `credential:` with `login` and `password` to use
 
 #### Credentials settings
 

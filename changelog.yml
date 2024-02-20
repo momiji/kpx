@@ -1,3 +1,39 @@
+- semver: 1.7.0
+  date: 2024-02-20T15:50:51.457026363+01:00
+  packager: ""
+  changes:
+    - commit: 5dbc89dee678ed7f485486b0a46009598e1785a9
+      note: 'fix: upgrade dependencies'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: fb9613b7c931a05bbf6e59492b520624ab661e90
+      note: 'feat: add native kerberos for windows/linux'
+      author:
+        name: Christian BOURGEOIS
+        email: christian.bourgeois@socgen.com
+      committer:
+        name: Christian BOURGEOIS
+        email: christian.bourgeois@socgen.com
+    - commit: d4b51680ae3fc1210f91881d857c70e5996632b1
+      note: 'fix: flush async logs before asing for login/password'
+      author:
+        name: Christian BOURGEOIS
+        email: christian.bourgeois@socgen.com
+      committer:
+        name: Christian BOURGEOIS
+        email: christian.bourgeois@socgen.com
+    - commit: ec0a45b23ba6ea819ee150e01e561215482d3d5b
+      note: 'fix: errors messages'
+      author:
+        name: Christian BOURGEOIS
+        email: christian.bourgeois@socgen.com
+      committer:
+        name: Christian BOURGEOIS
+        email: christian.bourgeois@socgen.com
 - semver: 1.6.1
   date: 2024-01-30T13:15:42.010525531+01:00
   packager: ""

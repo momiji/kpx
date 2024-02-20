@@ -1,4 +1,12 @@
 
+## [1.7.0](https://github.com/momiji/kpx/compare/v1.6.1...v1.7.0) (2024-02-20)
+
+* fix: upgrade dependencies [5dbc89de](https://github.com/momiji/kpx/commit/5dbc89dee678ed7f485486b0a46009598e1785a9)
+* feat: add native kerberos for windows/linux [fb9613b7](https://github.com/momiji/kpx/commit/fb9613b7c931a05bbf6e59492b520624ab661e90)
+* fix: flush async logs before asing for login/password [d4b51680](https://github.com/momiji/kpx/commit/d4b51680ae3fc1210f91881d857c70e5996632b1)
+* fix: errors messages [ec0a45b2](https://github.com/momiji/kpx/commit/ec0a45b23ba6ea819ee150e01e561215482d3d5b)
+
+
 ## [1.6.1](https://github.com/momiji/kpx/compare/v1.6.0...v1.6.1) (2024-01-30)
 
 

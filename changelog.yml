@@ -1,3 +1,39 @@
+- semver: 1.7.1
+  date: 2024-02-20T18:55:23.140626387+01:00
+  packager: ""
+  changes:
+    - commit: e001a8c1e6cfcaea4642bb56e45f41456324fece
+      note: Merge remote-tracking branch 'origin/main'
+      author:
+        name: Christian BOURGEOIS
+        email: christian.bourgeois@socgen.com
+      committer:
+        name: Christian BOURGEOIS
+        email: christian.bourgeois@socgen.com
+    - commit: a307dcbd9a9e2bc2ee38d2bbca077268f0d90236
+      note: 'fix: add missing NoKerberos for non supported OS'
+      author:
+        name: Christian BOURGEOIS
+        email: christian.bourgeois@socgen.com
+      committer:
+        name: Christian BOURGEOIS
+        email: christian.bourgeois@socgen.com
+    - commit: 1813cf8ecc50408201ba504ded0c0b8aa7c4c03c
+      note: 'docs: upgrade build/ sample'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: e26f5d4c91b36d6e34041785115c4e44dd1e1643
+      note: 'docs: upgrade build/ sample'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
 - semver: 1.7.0
   date: 2024-02-20T15:50:51.457026363+01:00
   packager: ""

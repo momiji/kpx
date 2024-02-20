@@ -1,4 +1,10 @@
 
+## [1.7.1](https://github.com/momiji/kpx/compare/v1.7.0...v1.7.1) (2024-02-20)
+
+* Merge remote-tracking branch 'origin/main' [e001a8c1](https://github.com/momiji/kpx/commit/e001a8c1e6cfcaea4642bb56e45f41456324fece)
+* fix: add missing NoKerberos for non supported OS [a307dcbd](https://github.com/momiji/kpx/commit/a307dcbd9a9e2bc2ee38d2bbca077268f0d90236)
+
+
 ## [1.7.0](https://github.com/momiji/kpx/compare/v1.6.1...v1.7.0) (2024-02-20)
 
 * fix: upgrade dependencies [5dbc89de](https://github.com/momiji/kpx/commit/5dbc89dee678ed7f485486b0a46009598e1785a9)

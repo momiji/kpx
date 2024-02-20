@@ -32,7 +32,7 @@ func (k *Kerberos) init() error {
 	}
 	krbCfg, err := config.NewFromString(krb5)
 	if err != nil {
-		return stacktrace.Propagate(err, "Kerberos error, could not create config: %v", err)
+		return stacktrace.Propagate(err, "Kerberos error, unable to create config")
 	}
 	// fix KDC list by extending KDC list with server ip, when it contains alpha characters
 	for i, realm := range krbCfg.Realms {
@@ -45,10 +45,10 @@ func (k *Kerberos) init() error {
 
 func (k *Kerberos) explodeKdcs(realmKdcs []string) []string {
 	k.explodeMutex.Lock()
+	defer k.explodeMutex.Unlock()
 	key := fmt.Sprintf("%v", realmKdcs)
 	val := k.explodedKdcs[key]
 	if val != nil {
-		k.explodeMutex.Unlock()
 		return val
 	}
 	newKdcs := make([]string, 0, 16)
@@ -76,7 +76,6 @@ func (k *Kerberos) explodeKdcs(realmKdcs []string) []string {
 		}
 	}
 	k.explodedKdcs[key] = newKdcs
-	k.explodeMutex.Unlock()
 	return newKdcs
 }
 

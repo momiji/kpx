@@ -142,7 +142,7 @@ func (r *ProxyRequest) readHeaders() (*RequestHeader, error) {
 		if readLen == 0 || err == io.EOF {
 			return nil, io.EOF
 		}
-		return nil, stacktrace.Propagate(err, "Could not read headers: %v", err)
+		return nil, stacktrace.Propagate(err, "Could not read headers")
 	}
 	if readLen == 0 {
 		return nil, stacktrace.NewError("Invalid request, no headers")
@@ -198,7 +198,7 @@ func (rh *RequestHeader) analyseRequestLine() error {
 		if len(hp) == 2 {
 			rh.port, err = strconv.Atoi(hp[1])
 			if err != nil {
-				return stacktrace.Propagate(err, "Invalid request line, expecting 'CONNECT host[:port] VERSION': %v, %v", headerLine, err)
+				return stacktrace.Propagate(err, "Invalid request line, expecting 'CONNECT host[:port] VERSION': %v", headerLine)
 			}
 		}
 		rh.url = "https://" + rh.host
@@ -209,7 +209,7 @@ func (rh *RequestHeader) analyseRequestLine() error {
 		rh.isConnect = false
 		u, err := url.Parse(rh.url)
 		if err != nil {
-			return stacktrace.Propagate(err, "Invalid request line, expecting 'METHOD URL VERSION': %v, %v", headerLine, err)
+			return stacktrace.Propagate(err, "Invalid request line, expecting 'METHOD URL VERSION': %v", headerLine)
 		}
 		rh.relativeUrl = u.RequestURI()
 		hp := strings.Split(u.Host, ":")
@@ -225,7 +225,7 @@ func (rh *RequestHeader) analyseRequestLine() error {
 		if len(hp) == 2 {
 			rh.port, err = strconv.Atoi(hp[1])
 			if err != nil {
-				return stacktrace.Propagate(err, "Invalid request line, expecting 'METHOD URL VERSION': %v, %v", headerLine, err)
+				return stacktrace.Propagate(err, "Invalid request line, expecting 'METHOD URL VERSION': %v", headerLine)
 			}
 		}
 	}
@@ -246,7 +246,7 @@ func (rh *RequestHeader) analyseResponseLine() error {
 	rh.version = GetHttpVersion(line[0])
 	rh.status, err = strconv.Atoi(line[1])
 	if err != nil {
-		return stacktrace.Propagate(err, "Invalid response line, epecting 'VERSION STATUS REASON': %v", err)
+		return stacktrace.Propagate(err, "Invalid response line, expecting 'VERSION STATUS REASON': %s", line)
 	}
 	rh.reason = line[2]
 	return nil
@@ -346,7 +346,7 @@ func (rh *RequestHeader) analyseHeaders(req bool) error {
 		case strings.HasPrefix(lower, "content-length:") && rh.contentLength == 0:
 			rh.contentLength, err = strconv.ParseInt(strings.TrimSpace(lower[15:]), 10, 64)
 			if err != nil {
-				return stacktrace.Propagate(err, "Invalid content-length header: %v", err)
+				return stacktrace.Propagate(err, "Invalid content-length header: %s", header)
 			}
 			if rh.contentLength < 0 {
 				return stacktrace.NewError("Invalid content-length header: value is < 0")

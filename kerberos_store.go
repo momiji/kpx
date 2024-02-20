@@ -123,15 +123,15 @@ func (kc *KerberosClient) safeGetToken(host string) (*string, error) {
 	s := spnego.SPNEGOClient(kc.krbClient, spn)
 	err := s.AcquireCred()
 	if err != nil {
-		return nil, stacktrace.Propagate(err, "could not acquire client credential")
+		return nil, stacktrace.Propagate(err, "unable to acquire client credential for spn: %s", spn)
 	}
 	st, err := s.InitSecContext()
 	if err != nil {
-		return nil, stacktrace.Propagate(err, "could not initialize context")
+		return nil, stacktrace.Propagate(err, "unable to initialize security context for spn: %s", spn)
 	}
 	nb, err := st.Marshal()
 	if err != nil {
-		return nil, stacktrace.Propagate(err, "could not marshal context")
+		return nil, stacktrace.Propagate(err, "unable to marshal security token for spn: %s", spn)
 	}
 	hs := base64.StdEncoding.EncodeToString(nb)
 	return &hs, nil

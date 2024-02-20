@@ -26,6 +26,10 @@ func logDestroy() {
 	logger.Destroy()
 }
 
+func logFlush() {
+	logger.Flush()
+}
+
 func logPrintf(format string, a ...any) {
 	format = fmt.Sprintf("%s %s", time.Now().Format(timeFormat), format)
 	fmt.Printf(format, a...)

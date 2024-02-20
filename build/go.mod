@@ -6,7 +6,7 @@ replace github.com/momiji/kpx v1.5.0 => ../
 
 replace github.com/jcmturner/gokrb5/v8 v8.4.4 => github.com/momiji/gokrb5/v8 v8.4.4-x0
 
-require github.com/momiji/kpx v1.6.1
+require github.com/momiji/kpx v1.7.0
 
 require (
 	github.com/alexbrainman/sspi v0.0.0-20231016080023-1a75b4708caa // indirect

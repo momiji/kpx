@@ -72,6 +72,8 @@ github.com/momiji/gokrb5/v8 v8.4.4-x0 h1:TbN8O999R0BDEaxpsGAmJRBTRhLAjhs8+YIQjie
 github.com/momiji/gokrb5/v8 v8.4.4-x0/go.mod h1:1btQEpgT6k+unzCwX1KdWMEwPPkkgBtP+F6aCACiMrs=
 github.com/momiji/kpx v1.6.1 h1:Avmf4g6024K2DmHWRDPyjlAds7f0+uhwfodasrWinf4=
 github.com/momiji/kpx v1.6.1/go.mod h1:G5UVmrWXkrmBq6bVjtgHNP8YUMB76gjkHl6WCHxQvjc=
+github.com/momiji/kpx v1.7.0 h1:zDl2dwHLxOpsPxGJYZ8URD25pOyWRY/d73dJ+/0pK5g=
+github.com/momiji/kpx v1.7.0/go.mod h1:lb21+y7C9kRZw+uRPgltdRFmjskHDhKbhSb6qeBLMFs=
 github.com/palantir/stacktrace v0.0.0-20161112013806-78658fd2d177 h1:nRlQD0u1871kaznCnn1EvYiMbum36v7hw1DLPEjds4o=
 github.com/palantir/stacktrace v0.0.0-20161112013806-78658fd2d177/go.mod h1:ao5zGxj8Z4x60IOVYZUbDSmt3R8Ddo080vEgPosHpak=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=

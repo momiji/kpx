@@ -251,6 +251,9 @@ func (c *Config) check() (err error) {
 }
 
 func (c *Config) build() error {
+	if c.conf.Credentials == nil {
+		c.conf.Credentials = make(map[string]*ConfCred)
+	}
 	// build server bind
 	if c.conf.Bind == "" {
 		c.conf.Bind = "127.0.0.1"

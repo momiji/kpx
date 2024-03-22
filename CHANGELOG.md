@@ -1,4 +1,10 @@
 
+## [1.7.2](https://github.com/momiji/kpx/compare/v1.7.1...v1.7.2) (2024-03-22)
+
+* fix: native kerberos for Linux not working [bd12701e](https://github.com/momiji/kpx/commit/bd12701e1e5bffa00c532325b69fa0c728051344)
+* fix: crash if no credentials: in yaml config [d6dea06f](https://github.com/momiji/kpx/commit/d6dea06f166d1d04a407514c4c52cf551067d4e8)
+
+
 ## [1.7.1](https://github.com/momiji/kpx/compare/v1.7.0...v1.7.1) (2024-02-20)
 
 * Merge remote-tracking branch 'origin/main' [e001a8c1](https://github.com/momiji/kpx/commit/e001a8c1e6cfcaea4642bb56e45f41456324fece)

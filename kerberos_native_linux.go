@@ -24,9 +24,6 @@ type LinuxKerberos struct {
 }
 
 func (k *LinuxKerberos) SafeTryLogin() error {
-	k.mutex.Lock()
-	defer k.mutex.Unlock()
-
 	if k.cfg != nil {
 		return nil
 	}
@@ -88,6 +85,7 @@ func (k *LinuxKerberos) getCanonicalHostname(hostname string) (string, error) {
 }
 
 func (k *LinuxKerberos) makeCfg() error {
+	// mutex is used to have a singleton config
 	k.mutex.Lock()
 	defer k.mutex.Unlock()
 
@@ -115,6 +113,7 @@ func (k *LinuxKerberos) makeCfg() error {
 }
 
 func (k *LinuxKerberos) makeClient() (*client.Client, error) {
+	// no mutex here because k.cfg is already set and is never changed
 	u, err := user.Current()
 	if err != nil {
 		return nil, err

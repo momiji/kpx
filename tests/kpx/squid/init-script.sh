@@ -54,7 +54,7 @@ EOF
   while true ; do
     echo "waiting for kdc..."
     nc kdc 88 -vz && break
-    sleep 0.1
+    sleep 1
   done
   while [ ! -f /etc/squid/HTTP.keytab ]; do
     kadmin -w $KADMIN_PASSWORD -p $KADMIN_PRINCIPAL@$REALM -q "ktadd -k /etc/squid/HTTP.keytab HTTP/$PROXY_NAME@$REALM" || sleep 1
@@ -68,6 +68,46 @@ acl authenticated proxy_auth REQUIRED
 http_access allow all authenticated
 #debug_options ALL,1
 EOF
+}
+
+[ "$MODE" = "client" ] && {
+  cat > /etc/krb5.conf <<EOF
+[libdefaults]
+default_realm = $REALM
+# The following krb5.conf variables are only for MIT Kerberos.
+kdc_timesync = 1
+ccache_type = 4
+forwardable = true
+proxiable = true
+rdns = false
+# The following libdefaults parameters are only for Heimdal Kerberos.
+fcc-mit-ticketflags = true
+
+[realms]
+$REALM = {
+  kdc = kdc
+  admin_server = kdc
+}
+
+[domain_realm]
+.${REALM,,} = $REALM
+${REALM,,} = $REALM
+
+[logging]
+kdc = FILE:/var/log/kdc.log
+admin_server = FILE:/var/log/kadmin.log
+default = FILE:/var/log/krb5lib.log
+EOF
+  while true ; do
+    echo "waiting for kdc..."
+    nc kdc 88 -vz && break
+    sleep 1
+  done
+  while [ ! -f /etc/krb5.keytab ]; do
+    kadmin -w $KADMIN_PASSWORD -p $KADMIN_PRINCIPAL@$REALM -q "ktadd -k /etc/krb5.keytab user" || sleep 1
+  done
+  kinit -k user
+  exit 0
 }
 
 squid --foreground # -X -d 1

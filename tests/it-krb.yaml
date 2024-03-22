@@ -1,0 +1,19 @@
+bind: 0.0.0.0
+port: 8889
+verbose: true
+debug: true # required to have kpx- headers
+trace: true
+experimental: connection-pools hosts-cache
+
+proxies:
+  kdc:
+    type: kerberos
+    spn: HTTP
+    realm: EXAMPLE.COM
+    host: proxy-krb2
+    port: 3128
+    credential: kerberos
+
+rules:
+  - host: "*"
+    proxy: kdc

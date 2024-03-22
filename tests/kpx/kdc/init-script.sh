@@ -8,6 +8,8 @@ USER_PRINCIPAL=${USER_PRINCIPAL:-user}
 USER_PASSWORD=${USER_PASSWORD:-userpassword}
 PROXY_NAME=${PROXY_NAME:-127.0.0.1}
 
+sleep 5
+
 echo "==================================================================================="
 echo "==== Kerberos KDC and Kadmin ======================================================"
 echo "==================================================================================="
@@ -94,6 +96,12 @@ echo "Adding HTTP/$PROXY_NAME principal"
 kadmin.local -q "delete_principal -force HTTP/$PROXY_NAME@$REALM"
 echo ""
 kadmin.local -q "addprinc -randkey HTTP/$PROXY_NAME@$REALM"
+echo ""
+
+echo "Adding HTTP/proxy-krb2 principal"
+kadmin.local -q "delete_principal -force HTTP/proxy-krb2@$REALM"
+echo ""
+kadmin.local -q "addprinc -randkey HTTP/proxy-krb2@$REALM"
 echo ""
 
 krb5kdc

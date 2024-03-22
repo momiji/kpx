@@ -19,6 +19,20 @@ services:
     volumes:
       - ./../../kpx:/kpx:ro
       - ./../it.yaml:/it.yaml:ro
+  ckrb:
+    build: squid/
+    environment:
+      - MODE=client
+    command: sh -c "/init-script.sh && while true ; do /kpx -c /it-krb.yaml && break ; sleep 1 ; done"
+    hostname: client-krb
+    networks:
+      network:
+    ports:
+      - "8889:8889"
+    volumes:
+      - ./squid/init-script.sh:/init-script.sh:ro
+      - ./../../kpx:/kpx:ro
+      - ./../it-krb.yaml:/it-krb.yaml:ro
   anon:
     build: squid/
     environment:
@@ -40,7 +54,7 @@ services:
     ports:
       - "3129:3128"
     volumes:
-      - ./squid/init-script.sh:/init-script.sh
+      - ./squid/init-script.sh:/init-script.sh:ro
   krb:
     build: squid/
     environment:
@@ -50,6 +64,16 @@ services:
       network:
     ports:
       - "3130:3128"
+    volumes:
+      - ./squid/init-script.sh:/init-script.sh:ro
+  krb2:
+    build: squid/
+    environment:
+      - MODE=krb
+      - PROXY_NAME=proxy-krb2
+    hostname: proxy-krb2
+    networks:
+      network:
     volumes:
       - ./squid/init-script.sh:/init-script.sh:ro
   socksa:

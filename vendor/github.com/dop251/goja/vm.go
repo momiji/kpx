@@ -897,10 +897,12 @@ func (vm *vm) toCallee(v Value) *Object {
 	panic(vm.r.NewTypeError("Value is not an object: %s", v.toString()))
 }
 
-type loadVal uint32
+type loadVal struct {
+	v Value
+}
 
 func (l loadVal) exec(vm *vm) {
-	vm.push(vm.prg.values[l])
+	vm.push(l.v)
 	vm.pc++
 }
 
@@ -929,6 +931,15 @@ var saveResult _saveResult
 func (_saveResult) exec(vm *vm) {
 	vm.sp--
 	vm.result = vm.stack[vm.sp]
+	vm.pc++
+}
+
+type _loadResult struct{}
+
+var loadResult _loadResult
+
+func (_loadResult) exec(vm *vm) {
+	vm.push(vm.result)
 	vm.pc++
 }
 

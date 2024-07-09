@@ -50,7 +50,7 @@ double_check "multiple hosts" https://web7s.example.com 7 "mbasic" "127.0.0.1:31
 double_check "none proxy" https://nones.example.com 0 "none"
 
 # native kerberos
-CURL="curl -x 127.0.0.1:8888"
+CURL="curl -x 127.0.0.1:8889"
 double_check "native kerberos" http://web3.example.com 3 "kdc"
-CURL="curl -x 127.0.0.1:8888 --cacert ./certs/ca.pem"
+CURL="curl -x 127.0.0.1:8889 --cacert ./certs/ca.pem"
 double_check "native kerberos" https://web3s.example.com 3 "kdc"

@@ -1,27 +1,22 @@
 package kpx
 
 import (
+	"crypto/tls"
 	"math"
 	"net"
 	"time"
 )
 
 func ConfigureConn(conn net.Conn) {
-	//// EXPERIMENTAL code to try reducing TIME_WAIT connections
-	//if c, ok := conn.(*net.TCPConn); ok {
-	//	c.SetLinger(0)
-	//	c.SetNoDelay(true)
-	//	if s, e := c.SyscallConn(); e == nil {
-	//		s.Control(func(fd uintptr) {
-	//			_ = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.TCP_LINGER2, 1)
-	//		})
-	//	}
-	//	return
-	//}
-	//if c, ok := conn.(*tls.Conn); ok {
-	//	ConfigureConn(c)
-	//	return
-	//}
+	// Reducing TIME_WAIT connections by disableing Nagle's algorythm
+	if c, ok := conn.(*net.TCPConn); ok {
+		_ = c.SetNoDelay(true)
+		return
+	}
+	if c, ok := conn.(*tls.Conn); ok {
+		ConfigureConn(c.NetConn())
+		return
+	}
 }
 
 /*

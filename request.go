@@ -113,6 +113,7 @@ func (r *ProxyRequest) ReadFull(buffer []byte) (int, error) {
 		if err != nil {
 			return length, err // no wrap
 		}
+		// looking for \r\n\r\n (4 chars) at the end of http headers
 		for i := pos; i < length; i++ {
 			if buffer[i] == 13 || buffer[i] == 10 {
 				found++

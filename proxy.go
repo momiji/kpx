@@ -3,6 +3,7 @@ package kpx
 import (
 	"container/list"
 	"fmt"
+	"github.com/txthinking/socks5"
 	"math"
 	"net"
 	"os"
@@ -26,6 +27,7 @@ type Proxy struct {
 	fixWatchEvent *ManualResetEvent     //
 	connPool      map[string]*list.List // must be synced - used in each process
 	poolMutex     sync.Mutex            // atomic - used in each process
+
 	// krbClients    map[string]*KerberosClient //
 	// configPtr     *unsafe.Pointer
 }
@@ -238,13 +240,8 @@ func (p *Proxy) reload() {
 
 func (p *Proxy) run() error {
 	config := p.getConfig()
-	ln, err := net.Listen("tcp4", fmt.Sprint(config.conf.Bind, ":", config.conf.Port))
-	if err != nil {
-		return stacktrace.Propagate(err, "unable to listen to %s:%d", config.conf.Bind, config.conf.Port)
-	}
 
-	hostPort := ln.Addr().String()
-	logInfo("[-] Use http://%s as your proxy url or http://%s/proxy.pac as your pac url", hostPort, hostPort)
+	// start automatic exit
 	if options.Timeout > 0 {
 		go func() {
 			<-time.After(time.Duration(options.Timeout) * time.Second)
@@ -253,12 +250,8 @@ func (p *Proxy) run() error {
 		}()
 		logInfo("[-] Proxy will exit automatically in %v seconds", options.Timeout)
 	}
-	/*go func() {
-		for {
-			logInfo("[-] Status (goroutines,requests): %d, %d", runtime.NumGoroutine(), p.requestsCount.Get())
-			time.Sleep(60 * time.Second)
-		}
-	}()*/
+
+	// start automatic pool vacuum
 	go func() {
 		for !p.stopped() {
 			<-time.After(time.Duration(POOL_CLOSE_TIMEOUT) * time.Second)
@@ -266,32 +259,84 @@ func (p *Proxy) run() error {
 		}
 	}()
 
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			continue
-		}
-		ConfigureConn(conn)
-		if p.stopped() {
-			_ = conn.Close() // force closing client, ignore any error
-			break
-		}
-		if trace {
-			logInfo("new connection")
-		}
-		go func() {
-			c := p.requestsCount.IncrementAndGet(1)
-			if trace {
-				logInfo("connections count=%d", c)
-			}
-			NewProcess(p, conn).process()
-			c = p.requestsCount.DecrementAndGet(1)
-			if trace {
-				logInfo("connections count=%d", c)
-			}
-		}()
+	// start http server
+	ln, err := net.Listen("tcp4", fmt.Sprint(config.conf.Bind, ":", config.conf.Port))
+	if err != nil {
+		return stacktrace.Propagate(err, "unable to listen on %s:%d", config.conf.Bind, config.conf.Port)
 	}
 
+	hostPort := ln.Addr().String()
+	logInfo("[-] Use http://%s as your http proxy or http://%s/proxy.pac as your proxy pac url", hostPort, hostPort)
+
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				continue
+			}
+			ConfigureConn(conn)
+			if p.stopped() {
+				_ = conn.Close() // force closing client, ignore any error
+				break
+			}
+			if trace {
+				logInfo("new connection")
+			}
+			go func() {
+				c := p.requestsCount.IncrementAndGet(1)
+				if trace {
+					logInfo("connections count=%d", c)
+				}
+				NewProcess(p, conn).processHttp()
+				c = p.requestsCount.DecrementAndGet(1)
+				if trace {
+					logInfo("connections count=%d", c)
+				}
+			}()
+		}
+	}()
+
+	// start socks5 server
+	socks, err := socks5.NewClassicServer(fmt.Sprintf("%s:%d", config.conf.Bind, config.conf.Socks), config.conf.Bind, "", "", 0, 60)
+	if err != nil {
+		return stacktrace.Propagate(err, "unable to create socks server on %s:%d", config.conf.Bind, config.conf.Socks)
+	}
+	logInfo("[-] Use socks://%s as your socks proxy", socks.Addr)
+	err = socks.ListenAndServe(p)
+	if err != nil {
+		return stacktrace.Propagate(err, "unable to listen on %s:%d", config.conf.Bind, config.conf.Socks)
+	}
+
+	// wait forever, only exit() can stop or a previous return with an error
+	select {}
+}
+
+func (p *Proxy) TCPHandle(server *socks5.Server, conn *net.TCPConn, request *socks5.Request) error {
+	if request.Cmd != socks5.CmdConnect {
+		logInfo("[-] TCP socks proxy is not implemented for command %b", request.Cmd)
+		return nil
+	}
+	// return any address, not important as we are using connect?
+	a, addr, port, err := socks5.ParseAddress("127.0.0.1:12345")
+	if err != nil {
+		conn.Close()
+		return err
+	}
+	if a == socks5.ATYPDomain {
+		addr = addr[1:]
+	}
+	reply := socks5.NewReply(socks5.RepSuccess, a, addr, port)
+	if _, err := reply.WriteTo(conn); err != nil {
+		conn.Close()
+		return err
+	}
+
+	NewProcess(p, conn).processSocks(request)
+	return nil
+}
+
+func (p *Proxy) UDPHandle(server *socks5.Server, addr *net.UDPAddr, datagram *socks5.Datagram) error {
+	logInfo("[-] UDP socks proxy is not implemented")
 	return nil
 }
 

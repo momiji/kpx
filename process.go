@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/txthinking/socks5"
 	"io"
 	"net"
 	"sort"
@@ -47,7 +48,7 @@ func NewProcess(proxy *Proxy, conn net.Conn) *Process {
 	}
 }
 
-func (p *Process) process() {
+func (p *Process) processHttp() {
 	// automatically close connection on exit
 	defer func() { _ = p.conn.Close() }()
 	// loop until proxyChannel is empty, meaning connection should close
@@ -101,104 +102,14 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 	if trace {
 		logTrace(p.ti, "proxy match")
 	}
-	rule, proxies := p.config.match(clientChannel.header.url, clientChannel.header.hostPort)
-
-	// get sorted proxies
-	var firstProxy *ConfProxy
-	var firstHostPort string
-	sortedProxies := append(proxies[:0], proxies...)
-	if sortedProxies != nil {
-		// sort proxies
-		if len(sortedProxies) > 1 {
-			p.config.lastMMutex.RLock()
-			sort.SliceStable(sortedProxies, func(i int, j int) bool {
-				l1 := p.config.lastProxies[*sortedProxies[i].name]
-				l2 := p.config.lastProxies[*sortedProxies[j].name]
-				return l1.After(l2)
-			})
-			p.config.lastMMutex.RUnlock()
-		}
-		// find first working proxy
-	proxyLoop:
-		for pi, proxy := range sortedProxies {
-			if *proxy.Type == ProxyDirect || *proxy.Type == ProxyNone {
-				firstProxy = proxy
-				break
-			}
-			// get hosts and port
-			hosts := []string{""}
-			if proxy.Host != nil {
-				hosts = strings.Split(*proxy.Host, ",")
-			}
-			port := proxy.Port
-			// sort hosts
-			if len(hosts) > 1 {
-				p.config.lastMMutex.RLock()
-				sort.SliceStable(hosts, func(i int, j int) bool {
-					l1 := p.config.lastProxies[*proxy.name+"."+hosts[i]]
-					l2 := p.config.lastProxies[*proxy.name+"."+hosts[j]]
-					return l1.After(l2)
-				})
-				p.config.lastMMutex.RUnlock()
-			}
-			// loop on hosts
-			for hi, host := range hosts {
-				hostPort := fmt.Sprintf("%s:%d", host, port)
-				// set default proxy
-				if firstProxy == nil {
-					firstProxy = proxy
-					firstHostPort = hostPort
-				}
-				// try to connect to host
-				dialer := new(net.Dialer)
-				dialer.Timeout = time.Duration(p.config.conf.ConnectTimeout) * time.Second
-				checkConn, err := dialer.Dial("tcp4", hostPort)
-				if err != nil {
-					// on failure, try next host
-					if debug {
-						logInfo("[%s] Host %s: %v", *proxy.name, hostPort, err)
-					}
-					continue
-				}
-				ConfigureConn(checkConn)
-				_ = checkConn.Close()
-				// update last proxy and host usage
-				p.config.lastMMutex.RLock()
-				pl := p.config.lastProxies[*proxy.name]
-				hl := p.config.lastProxies[*proxy.name+"."+host]
-				p.config.lastMMutex.RUnlock()
-				// update last proxy usage, this is very rare
-				if pi > 0 || pl.IsZero() || hi > 0 || hl.IsZero() {
-					p.config.lastMMutex.Lock()
-					pl = p.config.lastProxies[*proxy.name]
-					hl = p.config.lastProxies[*proxy.name+"."+host]
-					if pi > 0 || pl.IsZero() || hi > 0 || hl.IsZero() {
-						p.config.lastProxies[*proxy.name] = time.Now()
-						p.config.lastProxies[*proxy.name+"."+host] = time.Now()
-					}
-					p.config.lastMMutex.Unlock()
-				}
-				if debug {
-					if pi > 0 || (pl.IsZero() && len(sortedProxies) > 1) {
-						if debug {
-							logInfo("[%s] Now using proxy %s", p.proxyShortName(*rule.Proxy), *proxy.name)
-						}
-					}
-					if hi > 0 || (hl.IsZero() && len(hosts) > 1) {
-						if debug {
-							logInfo("[%s] Now using host %s", *proxy.name, host)
-						}
-					}
-				}
-				// set firstProxy
-				firstProxy = proxy
-				firstHostPort = hostPort
-				break proxyLoop
-			}
-		}
-	}
+	rule, proxies := p.config.matchHttp(clientChannel.header.url, clientChannel.header.hostPort)
+	firstProxy, firstHostPort := p.findFirstProxy(rule, proxies)
 	if trace {
-		logTrace(p.ti, "proxy matched %s", *firstProxy.name)
+		if firstProxy != nil {
+			logTrace(p.ti, "proxy matched '%s'", *firstProxy.name)
+		} else {
+			logTrace(p.ti, "no proxy matched")
+		}
 	}
 
 	// print log in verbose mode
@@ -242,50 +153,9 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 			logTrace(p.ti, "per-user authentication")
 		}
 		proxyAuthorization := clientChannel.findHeader("proxy-authorization")
-		authenticated := false
 		if proxyAuthorization != nil {
-			basic := strings.SplitN(*proxyAuthorization, " ", 2)
-			if len(basic) == 2 {
-				credentials, err := base64.StdEncoding.DecodeString(basic[1])
-				if err == nil {
-					userDetails := strings.SplitN(string(credentials), ":", 2)
-					if len(userDetails) == 2 {
-						switch {
-						case *firstProxy.Type == ProxyKerberos:
-							// note that it is not needed to check isNative as there is no cred for per-user auth
-							authorizationContext = p.hash("krb:%s/%s/%s/%s", userDetails[0], *firstProxy.Realm, userDetails[1], *firstProxy.Host)
-							authorizationFunc = func(username string, realm string, password string, protocol string, host string) func() (*string, error) {
-								return func() (*string, error) {
-									// hide error, as this is not an unrecoverable error
-									auth, err := p.proxy.generateKerberosNegotiate(username, realm, password, protocol, host)
-									if err != nil {
-										logError("%s Failed to generate authenticate token: %v", p.logPrefix, err)
-									}
-									return auth, nil
-								}
-							}(userDetails[0], *firstProxy.Realm, userDetails[1], *firstProxy.Spn, *firstProxy.Host)
-							authenticated = true
-						case *firstProxy.Type == ProxyBasic:
-							authorizationContext = p.hash("basic:%s", *proxyAuthorization)
-							authorizationFunc = func(auth *string) func() (*string, error) {
-								return func() (*string, error) {
-									return auth, nil
-								}
-							}(proxyAuthorization)
-							authenticated = true
-						case *firstProxy.Type == ProxySocks:
-							credentialString := string(credentials)
-							authorizationContext = p.hash("socks:%s", credentialString)
-							authorizationFunc = func(auth *string) func() (*string, error) {
-								return func() (*string, error) {
-									return auth, nil
-								}
-							}(&credentialString)
-							authenticated = true
-						}
-					}
-				}
-			}
+			var authenticated bool
+			authenticated, authorizationContext, authorizationFunc = p.computeAuthPerUser(firstProxy, proxyAuthorization)
 			if !authenticated {
 				// authentication failed
 				_ = clientChannel.requireAuth(*firstProxy.name)
@@ -304,62 +174,12 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 		if trace {
 			logTrace(p.ti, "authentication")
 		}
-		authenticated := false
-		switch {
-		case *firstProxy.Type == ProxyKerberos && !firstProxy.cred.isNative:
-			authorizationContext = p.hash("krb:%s/%s/%s/%s", *firstProxy.cred.Login, *firstProxy.Realm, *firstProxy.cred.Password, *firstProxy.Host)
-			authorizationFunc = func(username string, realm string, password string, protocol string, host string) func() (*string, error) {
-				return func() (*string, error) {
-					// don't hide error, this is an unrecoverable error
-					auth, err := p.proxy.generateKerberosNegotiate(username, realm, password, protocol, host)
-					if err != nil {
-						logError("%s Failed to generate authenticate token: %v", p.logPrefix, err)
-						return nil, err
-					}
-					return auth, nil
-				}
-			}(*firstProxy.cred.Login, *firstProxy.Realm, *firstProxy.cred.Password, *firstProxy.Spn, *firstProxy.Host)
-			authenticated = true
-		case *firstProxy.Type == ProxyKerberos && firstProxy.cred.isNative:
-			authorizationContext = p.hash("native:%s", *firstProxy.Host)
-			authorizationFunc = func(protocol string, host string) func() (*string, error) {
-				return func() (*string, error) {
-					// don't hide error, this is an unrecoverable error
-					auth, err := p.proxy.generateKerberosNative(protocol, host)
-					if err != nil {
-						logError("%s Failed to generate authenticate token: %v", p.logPrefix, err)
-						return nil, err
-					}
-					return auth, nil
-				}
-			}(*firstProxy.Spn, *firstProxy.Host)
-			authenticated = true
-		case *firstProxy.Type == ProxyBasic:
-			basic := fmt.Sprintf("%s:%s", *firstProxy.cred.Login, *firstProxy.cred.Password)
-			basic = "Basic " + base64.StdEncoding.EncodeToString([]byte(basic))
-			authorizationContext = p.hash("basic:%s", basic)
-			authorizationFunc = func(auth *string) func() (*string, error) {
-				return func() (*string, error) {
-					return auth, nil
-				}
-			}(&basic)
-			authenticated = true
-		case *firstProxy.Type == ProxySocks:
-			credentialString := fmt.Sprintf("%s:%s", *firstProxy.cred.Login, *firstProxy.cred.Password)
-			authorizationContext = p.hash("socks:%s", credentialString)
-			authorizationFunc = func(auth *string) func() (*string, error) {
-				return func() (*string, error) {
-					return auth, nil
-				}
-			}(&credentialString)
-			authenticated = true
-		}
+		var authenticated bool
+		authenticated, authorizationContext, authorizationFunc = p.computeAuthPerConf(firstProxy)
 		if !authenticated {
-			// shutdown proxy because it is providing authentication that fails, not a per-user one
-			logError("%s Failed to generate authenticate token: %v", p.logPrefix, err)
-			logInfo("[-] Shutting down to prevent locking user account with repeated invalid password...")
-			p.proxy.stop()
-			return nil
+			// authentication failed
+			_ = clientChannel.requireAuth(*firstProxy.name)
+			return p.closeChannels(clientChannel, proxyChannel)
 		}
 	}
 
@@ -416,8 +236,8 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 						Password: userDetails[1],
 					}
 				}
-				var socks5 netproxy.Dialer
-				socks5, err = netproxy.SOCKS5("tcp4", firstHostPort, authz, dialer)
+				var socks netproxy.Dialer
+				socks, err = netproxy.SOCKS5("tcp4", firstHostPort, authz, dialer)
 				if err == nil {
 					hostPort := clientChannel.header.hostPort
 					h, p := splitHostPort(hostPort, "", "", false)
@@ -425,7 +245,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 						h2, p2 := splitHostPort(*rule.Dns, h, p, false)
 						hostPort = h2 + ":" + p2
 					}
-					conn, err = socks5.Dial("tcp4", hostPort)
+					conn, err = socks.Dial("tcp4", hostPort)
 				}
 			case ProxyDirect:
 				simulateConnect = clientChannel.header.isConnect
@@ -900,4 +720,354 @@ func (p *Process) pipe(source *ProxyRequest, target *ProxyRequest, wait *sync.Wa
 
 func (p *Process) hash(format string, a ...any) string {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf(format, a...))))
+}
+
+func (p *Process) findFirstProxy(rule *ConfRule, proxies []*ConfProxy) (*ConfProxy, string) {
+	var firstProxy *ConfProxy
+	var firstHostPort string
+	sortedProxies := append(proxies[:0], proxies...)
+	if sortedProxies != nil {
+		// sort proxies
+		if len(sortedProxies) > 1 {
+			p.config.lastMMutex.RLock()
+			sort.SliceStable(sortedProxies, func(i int, j int) bool {
+				l1 := p.config.lastProxies[*sortedProxies[i].name]
+				l2 := p.config.lastProxies[*sortedProxies[j].name]
+				return l1.After(l2)
+			})
+			p.config.lastMMutex.RUnlock()
+		}
+		// find first working proxy
+	proxyLoop:
+		for pi, proxy := range sortedProxies {
+			if *proxy.Type == ProxyDirect || *proxy.Type == ProxyNone {
+				firstProxy = proxy
+				break
+			}
+			// get hosts and port
+			hosts := []string{""}
+			if proxy.Host != nil {
+				hosts = strings.Split(*proxy.Host, ",")
+			}
+			port := proxy.Port
+			// sort hosts
+			if len(hosts) > 1 {
+				p.config.lastMMutex.RLock()
+				sort.SliceStable(hosts, func(i int, j int) bool {
+					l1 := p.config.lastProxies[*proxy.name+"."+hosts[i]]
+					l2 := p.config.lastProxies[*proxy.name+"."+hosts[j]]
+					return l1.After(l2)
+				})
+				p.config.lastMMutex.RUnlock()
+			}
+			// loop on hosts
+			for hi, host := range hosts {
+				hostPort := fmt.Sprintf("%s:%d", host, port)
+				// set default proxy
+				if firstProxy == nil {
+					firstProxy = proxy
+					firstHostPort = hostPort
+				}
+				// try to connect to host
+				dialer := new(net.Dialer)
+				dialer.Timeout = time.Duration(p.config.conf.ConnectTimeout) * time.Second
+				checkConn, err := dialer.Dial("tcp4", hostPort)
+				if err != nil {
+					// on failure, try next host
+					if debug {
+						logInfo("[%s] Host %s: %v", *proxy.name, hostPort, err)
+					}
+					continue
+				}
+				ConfigureConn(checkConn)
+				_ = checkConn.Close()
+				// update last proxy and host usage
+				p.config.lastMMutex.RLock()
+				pl := p.config.lastProxies[*proxy.name]
+				hl := p.config.lastProxies[*proxy.name+"."+host]
+				p.config.lastMMutex.RUnlock()
+				// update last proxy usage, this is very rare
+				if pi > 0 || pl.IsZero() || hi > 0 || hl.IsZero() {
+					p.config.lastMMutex.Lock()
+					pl = p.config.lastProxies[*proxy.name]
+					hl = p.config.lastProxies[*proxy.name+"."+host]
+					if pi > 0 || pl.IsZero() || hi > 0 || hl.IsZero() {
+						p.config.lastProxies[*proxy.name] = time.Now()
+						p.config.lastProxies[*proxy.name+"."+host] = time.Now()
+					}
+					p.config.lastMMutex.Unlock()
+				}
+				if debug {
+					if pi > 0 || (pl.IsZero() && len(sortedProxies) > 1) {
+						if debug {
+							logInfo("[%s] Now using proxy %s", p.proxyShortName(*rule.Proxy), *proxy.name)
+						}
+					}
+					if hi > 0 || (hl.IsZero() && len(hosts) > 1) {
+						if debug {
+							logInfo("[%s] Now using host %s", *proxy.name, host)
+						}
+					}
+				}
+				// set firstProxy
+				firstProxy = proxy
+				firstHostPort = hostPort
+				break proxyLoop
+			}
+		}
+	}
+	return firstProxy, firstHostPort
+}
+
+func (p *Process) computeAuthPerUser(firstProxy *ConfProxy, proxyAuthorization *string) (bool, string, func() (*string, error)) {
+	var authenticated bool
+	var authorizationContext string
+	var authorizationFunc func() (*string, error)
+	basic := strings.SplitN(*proxyAuthorization, " ", 2)
+	if len(basic) == 2 {
+		credentials, err := base64.StdEncoding.DecodeString(basic[1])
+		if err == nil {
+			userDetails := strings.SplitN(string(credentials), ":", 2)
+			if len(userDetails) == 2 {
+				switch {
+				case *firstProxy.Type == ProxyKerberos:
+					// note that it is not needed to check isNative as there is no cred for per-user auth
+					authorizationContext = p.hash("krb:%s/%s/%s/%s", userDetails[0], *firstProxy.Realm, userDetails[1], *firstProxy.Host)
+					authorizationFunc = func(username string, realm string, password string, protocol string, host string) func() (*string, error) {
+						return func() (*string, error) {
+							// hide error, as this is not an unrecoverable error
+							auth, err := p.proxy.generateKerberosNegotiate(username, realm, password, protocol, host)
+							if err != nil {
+								logError("%s Failed to generate authenticate token: %v", p.logPrefix, err)
+							}
+							return auth, nil
+						}
+					}(userDetails[0], *firstProxy.Realm, userDetails[1], *firstProxy.Spn, *firstProxy.Host)
+					authenticated = true
+				case *firstProxy.Type == ProxyBasic:
+					authorizationContext = p.hash("basic:%s", *proxyAuthorization)
+					authorizationFunc = func(auth *string) func() (*string, error) {
+						return func() (*string, error) {
+							return auth, nil
+						}
+					}(proxyAuthorization)
+					authenticated = true
+				case *firstProxy.Type == ProxySocks:
+					credentialString := string(credentials)
+					authorizationContext = p.hash("socks:%s", credentialString)
+					authorizationFunc = func(auth *string) func() (*string, error) {
+						return func() (*string, error) {
+							return auth, nil
+						}
+					}(&credentialString)
+					authenticated = true
+				}
+			}
+		}
+	}
+	return authenticated, authorizationContext, authorizationFunc
+}
+
+func (p *Process) computeAuthPerConf(firstProxy *ConfProxy) (bool, string, func() (*string, error)) {
+	var authenticated bool
+	var authorizationContext string
+	var authorizationFunc func() (*string, error)
+	switch {
+	case *firstProxy.Type == ProxyKerberos && !firstProxy.cred.isNative:
+		authorizationContext = p.hash("krb:%s/%s/%s/%s", *firstProxy.cred.Login, *firstProxy.Realm, *firstProxy.cred.Password, *firstProxy.Host)
+		authorizationFunc = func(username string, realm string, password string, protocol string, host string) func() (*string, error) {
+			return func() (*string, error) {
+				// don't hide error, this is an unrecoverable error
+				auth, err := p.proxy.generateKerberosNegotiate(username, realm, password, protocol, host)
+				if err != nil {
+					logError("%s Failed to generate authenticate token: %v", p.logPrefix, err)
+					return nil, err
+				}
+				return auth, nil
+			}
+		}(*firstProxy.cred.Login, *firstProxy.Realm, *firstProxy.cred.Password, *firstProxy.Spn, *firstProxy.Host)
+		authenticated = true
+	case *firstProxy.Type == ProxyKerberos && firstProxy.cred.isNative:
+		authorizationContext = p.hash("native:%s", *firstProxy.Host)
+		authorizationFunc = func(protocol string, host string) func() (*string, error) {
+			return func() (*string, error) {
+				// don't hide error, this is an unrecoverable error
+				auth, err := p.proxy.generateKerberosNative(protocol, host)
+				if err != nil {
+					logError("%s Failed to generate authenticate token: %v", p.logPrefix, err)
+					return nil, err
+				}
+				return auth, nil
+			}
+		}(*firstProxy.Spn, *firstProxy.Host)
+		authenticated = true
+	case *firstProxy.Type == ProxyBasic:
+		basic := fmt.Sprintf("%s:%s", *firstProxy.cred.Login, *firstProxy.cred.Password)
+		basic = "Basic " + base64.StdEncoding.EncodeToString([]byte(basic))
+		authorizationContext = p.hash("basic:%s", basic)
+		authorizationFunc = func(auth *string) func() (*string, error) {
+			return func() (*string, error) {
+				return auth, nil
+			}
+		}(&basic)
+		authenticated = true
+	case *firstProxy.Type == ProxySocks:
+		credentialString := fmt.Sprintf("%s:%s", *firstProxy.cred.Login, *firstProxy.cred.Password)
+		authorizationContext = p.hash("socks:%s", credentialString)
+		authorizationFunc = func(auth *string) func() (*string, error) {
+			return func() (*string, error) {
+				return auth, nil
+			}
+		}(&credentialString)
+		authenticated = true
+	}
+	return authenticated, authorizationContext, authorizationFunc
+}
+
+func (p *Process) processSocks(request *socks5.Request) {
+	var err error
+
+	if trace {
+		logTrace(p.ti, "start process")
+	}
+
+	// find matching rule and proxy
+	requestHostPort := request.Address()
+	rule, proxies := p.config.matchSocks(requestHostPort)
+	firstProxy, firstHostPort := p.findFirstProxy(rule, proxies)
+	proxyName := "none"
+	if firstProxy != nil {
+		proxyName = *firstProxy.name
+	}
+	if firstHostPort == "" {
+		firstHostPort = requestHostPort
+	}
+
+	if trace {
+		if firstProxy != nil {
+			logTrace(p.ti, "proxy matched '%s'", proxyName)
+		} else {
+			logTrace(p.ti, "no proxy matched")
+		}
+	}
+
+	// verbosity
+	verbose := p.config.conf.Verbose
+	if rule != nil && firstProxy.Verbose != nil {
+		verbose = *firstProxy.Verbose
+	}
+	if rule != nil && rule.Verbose != nil {
+		verbose = *rule.Verbose
+	}
+	verbose = verbose || debug || trace
+	p.verbose = verbose
+
+	// verbose log
+	if p.verbose {
+		logInfo("[%s] socks %s => %s", proxyName, requestHostPort, firstHostPort)
+	}
+
+	// if no proxy, just throw away the request
+	if rule == nil || firstProxy == nil || *firstProxy.Type == ProxyNone {
+		return
+	}
+
+	// check if authentication is required as defined in the configuration.
+	authentication := *firstProxy.Type == ProxySocks && firstProxy.cred != nil
+
+	//
+	var authorization *string
+	var authorizationFunc func() (*string, error)
+
+	if authentication {
+		if trace {
+			logTrace(p.ti, "authentication")
+		}
+		var authenticated bool
+		authenticated, _, authorizationFunc = p.computeAuthPerConf(firstProxy)
+		if !authenticated {
+			// authentication failed
+			return
+		}
+	}
+
+	// allow 3 retries, creating a new remote connection each time
+	retryable := 3
+	clientChannel := &ProxyRequest{
+		conn: p.conn,
+	}
+	var proxyChannel *ProxyRequest
+	// if connection from pool
+	// try up to retryable connections
+	for {
+		if trace {
+			logTrace(p.ti, "start connection (retryable=%d)", retryable)
+		}
+		var conn net.Conn
+		dialer := new(net.Dialer)
+		dialer.Timeout = time.Duration(p.config.conf.ConnectTimeout) * time.Second
+		switch *firstProxy.Type {
+		case ProxySocks:
+			var authz *netproxy.Auth
+			if authentication {
+				authorization, _ = authorizationFunc()
+			}
+			if authorization != nil {
+				userDetails := strings.SplitN(*authorization, ":", 2)
+				authz = &netproxy.Auth{
+					User:     userDetails[0],
+					Password: userDetails[1],
+				}
+			}
+			var socks netproxy.Dialer
+			socks, err = netproxy.SOCKS5("tcp4", firstHostPort, authz, dialer)
+			if err == nil {
+				hostPort := requestHostPort
+				h, p := splitHostPort(hostPort, "", "", false)
+				if rule.Dns != nil {
+					h2, p2 := splitHostPort(*rule.Dns, h, p, false)
+					hostPort = h2 + ":" + p2
+				}
+				conn, err = socks.Dial("tcp4", hostPort)
+			}
+		case ProxyDirect:
+			hostPort := requestHostPort
+			host, port := splitHostPort(hostPort, "", "", false)
+			if rule.Dns != nil {
+				h2, p2 := splitHostPort(*rule.Dns, host, port, false)
+				hostPort = h2 + ":" + p2
+			}
+			if firstProxy.Ssl {
+				tlsConfig := tls.Config{}
+				conn, err = tls.DialWithDialer(dialer, "tcp4", hostPort, &tlsConfig)
+			} else {
+				conn, err = dialer.Dial("tcp4", hostPort)
+			}
+		}
+		// if err == nil and pi>0 or pj>0, update last usage
+		if err != nil {
+			logError("[%s] socks %s => %s: dial %#s", proxyName, requestHostPort, firstHostPort, err)
+			retryable--
+			if retryable > 0 {
+				continue
+			}
+			return
+		}
+		//
+		ConfigureConn(conn)
+		proxyChannel = &ProxyRequest{
+			conn: NewTimedConn(conn, newTraceInfo(p.reqId, "proxy")),
+		}
+		break
+	}
+	//
+	// create a wait group to wait for both to finish
+	var finished sync.WaitGroup
+	finished.Add(2)
+	// double pipe async copy
+	go p.pipe(clientChannel, proxyChannel, &finished)
+	go p.pipe(proxyChannel, clientChannel, &finished)
+	// wait for both copy to finish
+	finished.Wait()
+	return
 }

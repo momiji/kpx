@@ -43,6 +43,9 @@ const CREDENTIAL_KERBEROS = "kerberos"
 func NewConfig(name string) (*Config, error) {
 	var config = Config{
 		conf: Conf{
+			Proxies:        make(map[string]*ConfProxy),
+			Rules:          make([]*ConfRule, 0),
+			SocksRules:     make([]*ConfRule, 0),
 			ConnectTimeout: DEFAULT_CONNECT_TIMEOUT,
 			IdleTimeout:    DEFAULT_IDLE_TIMOUT,
 			CloseTimeout:   DEFAULT_CLOSE_TIMEOUT,
@@ -72,11 +75,11 @@ func NewConfig(name string) (*Config, error) {
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "unable to build config")
 	}
-	err = config.genpac()
+	err = config.genPac()
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "unable to build config pac")
 	}
-	err = config.gencerts()
+	err = config.genCerts()
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "unable to load certificates")
 	}
@@ -156,75 +159,75 @@ func (c *Config) check() (err error) {
 	// check proxies
 	for name, proxy := range c.conf.Proxies {
 		if name == "" || name == ProxyDirect.Name() || name == ProxyNone.Name() || strings.HasPrefix(name, "$") {
-			return stacktrace.NewError("proxy names cannot be empty, 'direct', 'none' or start with a '$'")
+			return stacktrace.NewError("proxy '%s': name cannot be empty, 'direct', 'none' or start with a '$'", name)
 		}
 		if proxy.Type == nil {
-			return stacktrace.NewError("proxy '%s': all proxies must contain 'type' (kerberos,socks,basic,anonymous,pac)", name)
+			return stacktrace.NewError("proxy '%s': must contain 'type' (kerberos,socks,basic,anonymous,pac)", name)
 		}
 		proxy.typeValue = proxy.Type.Value()
 		if proxy.typeValue == -1 {
-			return stacktrace.NewError("proxy '%s': all proxies must contain 'type' (kerberos,socks,basic,anonymous,pac)", name)
+			return stacktrace.NewError("proxy '%s': must contain 'type' (kerberos,socks,basic,anonymous,pac)", name)
 		}
 		if *proxy.Type != ProxyPac {
 			if proxy.Url != nil {
-				return stacktrace.NewError("proxy '%s': all non-pac proxies must not contain 'url'", name)
+				return stacktrace.NewError("proxy '%s': non-pac proxy must not contain 'url'", name)
 			}
 			if proxy.Host == nil {
-				return stacktrace.NewError("proxy '%s': all proxies must contain 'host'", name)
+				return stacktrace.NewError("proxy '%s': non-pac proxy must contain 'host'", name)
 			}
 			if proxy.Port == 0 {
-				return stacktrace.NewError("proxy '%s': all proxies 'port' must specify a port number > 0)", name)
+				return stacktrace.NewError("proxy '%s': non-pac proxy port number must be > 0", name)
 			}
 			if proxy.Credentials != nil {
-				return stacktrace.NewError("proxy '%s': all non-pac proxies must not contain 'credentials')", name)
+				return stacktrace.NewError("proxy '%s': non-pac proxy must not contain 'credentials'", name)
 			}
 		} else {
 			if proxy.Url == nil {
-				return stacktrace.NewError("proxy '%s': all pac proxies must contain 'url'", name)
+				return stacktrace.NewError("proxy '%s': pac proxy must contain 'url'", name)
 			}
 			if proxy.Host != nil {
-				return stacktrace.NewError("proxy '%s': all proxies must not contain 'host'", name)
+				return stacktrace.NewError("proxy '%s': pac proxy must not contain 'host'", name)
 			}
 			if proxy.Port != 0 {
-				return stacktrace.NewError("proxy '%s': all proxies 'port' must not specify a port number > 0)", name)
+				return stacktrace.NewError("proxy '%s': pac proxy port number must be > 0", name)
 			}
 		}
 		if *proxy.Type == ProxyAnonymous || *proxy.Type == ProxyPac {
 			if proxy.Credential != nil {
-				return stacktrace.NewError("proxy '%s': all anonymous and pac proxies must not contain 'credential'", name)
+				return stacktrace.NewError("proxy '%s': anonymous and pac proxies must not contain 'credential'", name)
 			}
 		}
 		if proxy.Credential != nil && *proxy.Credential != "" && *proxy.Credential != CREDENTIAL_KERBEROS && c.conf.Credentials[*proxy.Credential] == nil {
-			return stacktrace.NewError("proxy '%s': all proxies 'credential' must exist in 'credentials'", name)
+			return stacktrace.NewError("proxy '%s': credential '%s' must exist in 'credentials'", name, *proxy.Credential)
 		}
 		for _, cred := range c.splitCredentials(proxy.Credentials) {
 			if cred != CREDENTIAL_KERBEROS && c.conf.Credentials[cred] == nil {
-				return stacktrace.NewError("proxy '%s': all pac proxies credentials must exist in 'credentials'", name)
+				return stacktrace.NewError("proxy '%s': credential '%s' must exist in 'credentials'", name, cred)
 			}
 		}
 	}
 	// check credentials
 	for name, cred := range c.conf.Credentials {
 		if name == "" || name == CREDENTIAL_KERBEROS || strings.HasPrefix(name, "$") {
-			return stacktrace.NewError("credential name cannot be empty, 'kerberos' or start with '$'")
+			return stacktrace.NewError("credential '%s': name cannot be empty, 'kerberos' or start with '$'", name)
 		}
 		if cred.Password != nil && cred.Login == nil {
-			return stacktrace.NewError("credential password cannot be set without login being set")
+			return stacktrace.NewError("credential '%s': password cannot be set without login being set", name)
 		}
 	}
-	// check rules
-	for _, rule := range c.conf.Rules {
+	// check http rules
+	for i, rule := range c.conf.Rules {
 		if rule.Host == nil {
-			return stacktrace.NewError("all rules must contain 'host'")
+			return stacktrace.NewError("rule %d: must contain 'host'", i)
 		}
 		if rule.Proxy == nil && rule.Dns == nil {
-			return stacktrace.NewError("all rules must contain 'proxy' or 'dns'")
+			return stacktrace.NewError("rule %d: must contain 'proxy' or 'dns'", i)
 		}
 		if rule.Proxy != nil {
 			if *rule.Proxy != ProxyDirect.Name() && *rule.Proxy != ProxyNone.Name() {
 				for _, p := range rule.allProxiesName() {
 					if c.conf.Proxies[p] == nil {
-						return stacktrace.NewError("all rules 'proxy' must exist in 'proxies', or be 'direct' or 'none'")
+						return stacktrace.NewError("rule %d: '%s' must exist in 'proxies', or be 'direct' or 'none'", i, p)
 					}
 				}
 			}
@@ -234,7 +237,7 @@ func (c *Config) check() (err error) {
 			} else if c.conf.Proxies[*rule.Proxy] != nil {
 				for _, p := range rule.allProxiesName() {
 					if *c.conf.Proxies[p].Type != ProxySocks {
-						return stacktrace.NewError("all rules with dns must have a 'direct' proxy or proxy of type 'socks'")
+						return stacktrace.NewError("rule %d: rule with dns must have a 'direct' proxy or proxy of type 'socks'", i)
 					}
 				}
 			}
@@ -242,7 +245,54 @@ func (c *Config) check() (err error) {
 		if rule.Dns != nil {
 			hp := strings.Split(*rule.Dns, ":")
 			if len(hp) == 0 || len(hp) > 2 {
-				return stacktrace.NewError("all dns must look like '[IP][:PORT]', i.e 'IP' or 'IP:PORT' or ':PORT'")
+				return stacktrace.NewError("rule %d: dns must be like '[IP][:PORT]', i.e 'IP' or 'IP:PORT' or ':PORT'", i)
+			}
+		}
+	}
+
+	// check socks rules
+	for i, rule := range c.conf.SocksRules {
+		if rule.Host == nil {
+			return stacktrace.NewError("socks rule %d: must contain 'host'", i)
+		}
+		if rule.Proxy == nil && rule.Dns == nil {
+			return stacktrace.NewError("socks rule %d: must contain 'proxy' or 'dns'", i)
+		}
+		if rule.Proxy != nil {
+			if *rule.Proxy != ProxyDirect.Name() && *rule.Proxy != ProxyNone.Name() {
+				for _, p := range rule.allProxiesName() {
+					if c.conf.Proxies[p] == nil {
+						return stacktrace.NewError("socks rule %d: '%s' must exist in 'proxies', or be 'direct' or 'none'", i, p)
+					}
+				}
+			}
+		}
+		if rule.Proxy != nil {
+			if *rule.Proxy == ProxyDirect.Name() {
+			} else if c.conf.Proxies[*rule.Proxy] != nil {
+				for _, p := range rule.allProxiesName() {
+					if *c.conf.Proxies[p].Type != ProxySocks {
+						return stacktrace.NewError("socks rule %d: must have a 'direct' proxy or proxy of type 'socks'", i)
+					} else if c.conf.Proxies[p].Credential != nil && *c.conf.Proxies[p].Credential == "" {
+						return stacktrace.NewError("socks rule %d: must not have a per-user credential (empty value)", i)
+					}
+				}
+			}
+		}
+		if rule.Proxy != nil && rule.Dns != nil {
+			if *rule.Proxy == ProxyDirect.Name() {
+			} else if c.conf.Proxies[*rule.Proxy] != nil {
+				for _, p := range rule.allProxiesName() {
+					if *c.conf.Proxies[p].Type != ProxySocks {
+						return stacktrace.NewError("socks rule %d: rule with dns must have a 'direct' proxy or proxy of type 'socks'", i)
+					}
+				}
+			}
+		}
+		if rule.Dns != nil {
+			hp := strings.Split(*rule.Dns, ":")
+			if len(hp) == 0 || len(hp) > 2 {
+				return stacktrace.NewError("socks rule %d: dns must be like '[IP][:PORT]', i.e 'IP' or 'IP:PORT' or ':PORT'", i)
 			}
 		}
 	}
@@ -262,6 +312,13 @@ func (c *Config) build() error {
 	c.conf.pacProxy = fmt.Sprint("PROXY ", c.conf.Bind, ":", c.conf.Port)
 	// build rules
 	for _, rule := range c.conf.Rules {
+		regex, err := c.regex(*rule.Host)
+		if err != nil {
+			return stacktrace.Propagate(err, "unable to compile rule regex")
+		}
+		rule.regex = regex
+	}
+	for _, rule := range c.conf.SocksRules {
 		regex, err := c.regex(*rule.Host)
 		if err != nil {
 			return stacktrace.Propagate(err, "unable to compile rule regex")
@@ -323,18 +380,23 @@ func (c *Config) build() error {
 		switch *proxy.Type {
 		case ProxyKerberos, ProxyBasic:
 			proxy.pacProxy = nil
+			// if per user, directly proxy to target who will ask for credentials
 			if proxy.cred.isPerUser {
-				pacProxy := c.genproxy("PROXY", *proxy.Host, proxy.Port)
+				pacProxy := c.genProxy("PROXY", *proxy.Host, proxy.Port)
 				proxy.pacProxy = &pacProxy
 			}
 		case ProxyDirect:
 			pacProxy := "DIRECT"
 			proxy.pacProxy = &pacProxy
 		case ProxySocks:
-			pacProxy := c.genproxy("SOCKS", *proxy.Host, proxy.Port)
-			proxy.pacProxy = &pacProxy
+			proxy.pacProxy = nil
+			// if no authentication, directly proxy to target
+			if proxy.cred == nil {
+				pacProxy := c.genProxy("SOCKS", *proxy.Host, proxy.Port)
+				proxy.pacProxy = &pacProxy
+			}
 		case ProxyAnonymous:
-			pacProxy := c.genproxy("PROXY", *proxy.Host, proxy.Port)
+			pacProxy := c.genProxy("PROXY", *proxy.Host, proxy.Port)
 			proxy.pacProxy = &pacProxy
 		}
 		if proxy.Pac != nil {
@@ -359,6 +421,19 @@ func (c *Config) build() error {
 	}
 	// update rules and isUsed
 	for _, rule := range c.conf.Rules {
+		if rule.Dns != nil && rule.Proxy == nil {
+			rule.Proxy = &directName
+		} else {
+			for _, p := range rule.allProxiesName() {
+				proxy := c.conf.Proxies[p]
+				proxy.isUsed = true
+				if proxy.cred != nil && !proxy.cred.isPerUser {
+					proxy.cred.isUsed = true
+				}
+			}
+		}
+	}
+	for _, rule := range c.conf.SocksRules {
 		if rule.Dns != nil && rule.Proxy == nil {
 			rule.Proxy = &directName
 		} else {
@@ -413,7 +488,7 @@ func (c *Config) build() error {
 	return nil
 }
 
-func (c *Config) genproxy(name string, hosts string, port int) string {
+func (c *Config) genProxy(name string, hosts string, port int) string {
 	list := make([]string, 0)
 	for _, host := range strings.Split(hosts, ",") {
 		list = append(list, fmt.Sprintf("%s %s:%d", name, host, port))
@@ -421,7 +496,7 @@ func (c *Config) genproxy(name string, hosts string, port int) string {
 	return strings.Join(list, ";")
 }
 
-func (c *Config) genpac() error {
+func (c *Config) genPac() error {
 	builder := strings.Builder{}
 	builder.WriteString(`
 var FindProxyForURL = function(profiles) {
@@ -588,13 +663,21 @@ func (c *Config) askCredentials() error {
 	return nil
 }
 
-func (c *Config) match(url string, hostPort string) (*ConfRule, []*ConfProxy) {
-	if hc, ok := c.getCachedHost(hostPort); ok {
+func (c *Config) matchHttp(url string, hostPort string) (*ConfRule, []*ConfProxy) {
+	return c.match(url, hostPort, "http:", &c.conf.Rules)
+}
+
+func (c *Config) matchSocks(hostPort string) (*ConfRule, []*ConfProxy) {
+	return c.match(hostPort, hostPort, "socks:", &c.conf.SocksRules)
+}
+
+func (c *Config) match(url string, hostPort string, prefix string, rules *[]*ConfRule) (*ConfRule, []*ConfProxy) {
+	if hc, ok := c.getCachedHost(prefix + hostPort); ok {
 		return hc.rule, hc.proxy
 	}
 	hostOnly := strings.Split(hostPort, ":")[0]
 	var direct *ConfRule
-	for _, rule := range c.conf.Rules {
+	for _, rule := range *rules {
 		match := false
 		if rule.regex.pattern == nil {
 			match = true
@@ -608,7 +691,7 @@ func (c *Config) match(url string, hostPort string) (*ConfRule, []*ConfProxy) {
 		if match {
 			proxy := c.resolve(url, hostOnly, rule)
 			if proxy != nil && *proxy[0] != ConfProxyContinue {
-				c.addCachedHost(hostPort, rule, proxy)
+				c.addCachedHost(prefix+hostPort, rule, proxy)
 				return rule, proxy
 			}
 			direct = rule
@@ -619,10 +702,10 @@ func (c *Config) match(url string, hostPort string) (*ConfRule, []*ConfProxy) {
 	if direct != nil {
 		rule := direct
 		proxy := []*ConfProxy{c.conf.Proxies[ProxyDirect.Name()]}
-		c.addCachedHost(hostPort, rule, proxy)
+		c.addCachedHost(prefix+hostPort, rule, proxy)
 		return rule, proxy
 	}
-	c.addCachedHost(hostPort, nil, nil)
+	c.addCachedHost(prefix+hostPort, nil, nil)
 	return nil, nil
 }
 
@@ -772,7 +855,7 @@ func (c *Config) regex(rule string) (*ConfRegex, error) {
 	}, nil
 }
 
-func (c *Config) gencerts() error {
+func (c *Config) genCerts() error {
 	mitm := false
 	for _, rule := range c.conf.Rules {
 		if rule.Mitm {
@@ -848,6 +931,7 @@ func (pt ProxyType) Value() int {
 type Conf struct {
 	Bind                        string
 	Port                        int
+	Socks                       int
 	Verbose                     bool
 	Debug                       bool
 	Trace                       bool
@@ -855,6 +939,7 @@ type Conf struct {
 	Credentials                 map[string]*ConfCred
 	Domains                     map[string]*string
 	Rules                       []*ConfRule
+	SocksRules                  []*ConfRule `yaml:"socksRules"`
 	pacProxy                    string
 	Krb5                        string
 	ConnectTimeout              int `yaml:"connectTimeout"`

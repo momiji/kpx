@@ -67,9 +67,9 @@ func (ks *KerberosStore) safeTryLogin(username, realm, password string, force bo
 	err := krbClient.Login()
 	if err != nil {
 		if e, ok := err.(krberror.Krberror); ok {
-			return nil, stacktrace.Propagate(err, "Invalid login/password for '%s@%s'\n%s\n%s", username, realm, e.RootCause, strings.Join(e.EText, "\n"))
+			return nil, stacktrace.Propagate(err, "Invalid login/password for user '%s' on realm '%s'\n%s\n%s", username, realm, e.RootCause, strings.Join(e.EText, "\n"))
 		}
-		return nil, stacktrace.Propagate(err, "Invalid login/password for '%s@%s'", username, realm)
+		return nil, stacktrace.Propagate(err, "Invalid login/password for user '%s' on realm '%s'", username, realm)
 	}
 	// save client
 	kcl = NewKerberosClient(krbClient)

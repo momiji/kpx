@@ -115,14 +115,14 @@ func (k *Kerberos) NewWithPassword(username, realm, password string) *client.Cli
 			Realm: realm,
 			KDC:   []string{realm + ":88"},
 		}
-		//also explode kdc to all its known ips, allowing to find a wrking IP (firewall restriction)
+		//also explode kdc to all its known ips, allowing to find a working IP (firewall restriction)
 		//unfortunately, this is not working with cross-domain calls, as all domains must be defined but are not known
 		newRealm.KDC = k.explodeKdcs(newRealm.KDC)
 		newKrbCfg.Realms = append(newKrbCfg.Realms, newRealm)
 		krbCfg = &newKrbCfg
 	}
 	// create new client
-	logInfo("[-] Authenticating user %s on %s", username, realm)
+	logInfo("[-] Authenticating user '%s' on realm '%s'", username, realm)
 	cl := client.NewWithPassword(username, realm, password, krbCfg, client.DisablePAFXFAST(true))
 	return cl
 }

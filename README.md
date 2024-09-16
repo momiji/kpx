@@ -3,7 +3,7 @@
 **kpx** is a configurable authentication proxy, that can be used to proxy:
 
 - HTTP/HTTPS requests to remote HTTP/SOCKS proxies using kerberos, basic, and anonymous authentication 
-- SOCKS requests to remote SOCKS proxies using basic and anonymous authentication (v1.7.0+)
+- SOCKS requests to remote SOCKS proxies using basic and anonymous authentication (v1.8.0+)
 
 The proxy can be configured to:
 

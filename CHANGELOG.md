@@ -1,4 +1,13 @@
 
+## [1.8.0](https://github.com/momiji/kpx/compare/v1.7.2...v1.8.0) (2024-09-16)
+
+* fix: upgrade dependencies [390e6473](https://github.com/momiji/kpx/commit/390e64739194492120028d04a90cb453473dd5d7)
+* fix: socks server with basic auth [f390219f](https://github.com/momiji/kpx/commit/f390219f490130cb0093623521f45c39f3cf856b)
+* fix: upgrade dependencies [766841a0](https://github.com/momiji/kpx/commit/766841a0d99be07cdb1ddbd7c3a74ab911865ec2)
+* feat: add socks server with basic rules [81234093](https://github.com/momiji/kpx/commit/8123409343b55834187a194fc0440f9799d5b945)
+* fix: set tcp_no_delay on tcp connections [783f4e80](https://github.com/momiji/kpx/commit/783f4e80b9e398d98ec4379e0793e3914a72a02a)
+
+
 ## [1.7.2](https://github.com/momiji/kpx/compare/v1.7.1...v1.7.2) (2024-03-22)
 
 * fix: native kerberos for Linux not working [bd12701e](https://github.com/momiji/kpx/commit/bd12701e1e5bffa00c532325b69fa0c728051344)

@@ -1,3 +1,79 @@
+- semver: 1.8.0
+  date: 2024-09-16T13:50:51.312930155+02:00
+  packager: ""
+  changes:
+    - commit: 0aad04cf7bea4e7e3c6db11c053ac91bd8270e5d
+      note: 'tests: improve PAC test'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 390e64739194492120028d04a90cb453473dd5d7
+      note: 'fix: upgrade dependencies'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 17e1f4a626231e9a353fe86406dc19b9b9a853b5
+      note: 'docs: typos'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: f390219f490130cb0093623521f45c39f3cf856b
+      note: 'fix: socks server with basic auth'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 766841a0d99be07cdb1ddbd7c3a74ab911865ec2
+      note: 'fix: upgrade dependencies'
+      author:
+        name: a443939
+        email: christian.bourgeois@socgen.com
+      committer:
+        name: a443939
+        email: christian.bourgeois@socgen.com
+    - commit: 8123409343b55834187a194fc0440f9799d5b945
+      note: 'feat: add socks server with basic rules'
+      author:
+        name: a443939
+        email: christian.bourgeois@socgen.com
+      committer:
+        name: a443939
+        email: christian.bourgeois@socgen.com
+    - commit: 8c1d7db88116c606c7b65cfdd9e240d73e70b621
+      note: 'tests: native krb tests fixed'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 02ce48ab431365aec1cf972ea8e9e242399e1187
+      note: 'chore: typos'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 783f4e80b9e398d98ec4379e0793e3914a72a02a
+      note: 'fix: set tcp_no_delay on tcp connections'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
 - semver: 1.7.2
   date: 2024-03-22T01:23:14.150345011+01:00
   packager: ""

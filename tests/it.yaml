@@ -1,5 +1,6 @@
 bind: 127.0.0.1
 port: 8888
+socksPort: 8890
 verbose: true
 debug: true # required to have kpx- headers
 trace: true
@@ -78,6 +79,16 @@ rules:
     proxy: anon
   - host: "*"
     proxy: kdc
+
+socksRules:
+  - host: "web4*"
+    proxy: socksa
+  - host: "web5*"
+    proxy: socksp
+  - host: "web1*"
+    dns: 127.0.0.1:1082
+  - host: "*"
+    proxy: direct
 
 krb5: |
   [libdefaults]

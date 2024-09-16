@@ -110,4 +110,5 @@ EOF
   exit 0
 }
 
+echo "Starting squid..."
 squid --foreground # -X -d 1

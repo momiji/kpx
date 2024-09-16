@@ -1,17 +1,23 @@
 # kpx - Kerberos proxy with dynamic proxy selection
 
-**kpx** is a configurable authentication proxy, that can be used to:
+**kpx** is a configurable authentication proxy, that can be used to proxy:
+
+- HTTP/HTTPS requests to remote HTTP/SOCKS proxies using kerberos, basic, and anonymous authentication 
+- SOCKS requests to remote SOCKS proxies using basic and anonymous authentication (v1.7.0+)
+
+The proxy can be configured to:
 
 - route traffic to **different remote proxies** based on url
 - **stop traffic** for specific url
-- **inject credential** for remote proxies, allowing to use proxy without setting credentials
+- **inject credential** for remote proxies, allowing to use the proxy without setting credentials
 - support **kerberos** and **basic** credentials
 - support **kerberos native** authentication on Windows and Linux (and MacOS?)
 - support remote **http** and **socks** proxies
 - **internally developed**, allowing to add features when necessary, like **proxy failover**, **regex rules**, **password caching**, **PAC support**, ...
 - **multi-platform binaries**, for Windows, Linux and MacOS
 - support automatic **update** and **restart** when configured
-- experimental features like `connection-pools` (reuse http connections when possible) and `hosts-cache` (cache proxy lookup result by host:port, incompatible with url matching)
+- use experimental feature `connection-pools` to reuse http connections when possible
+- use experimental feature `hosts-cache` to cache proxy lookup result by host:port (incompatible with url matching)
 
 Alternatives tools that can be used:
 
@@ -101,6 +107,7 @@ Configuration example:
 ```yaml
 bind: 127.0.0.1
 port: 8888
+socksPort: 8889
 verbose: true
 debug: false
 
@@ -143,6 +150,10 @@ proxies:
     host: proxy-mkt-o365.si.company
     port: 8080
     credential: user
+  socks:
+    type: socks
+    host: socks.si.company
+    port: 1080
 
 credentials:
   user:
@@ -156,6 +167,11 @@ rules:
 # redirect all to pac
   - host: "*"
     proxy: pac-ret
+
+socksRules:
+  # redirect all to socks server
+  - host: "*"
+    proxy: socks
 ```
 
 ### Help
@@ -165,8 +181,10 @@ $ kpx -h
 
 # listen to this ip, use 0.0.0.0 to listen on all ips
 bind: 127.0.0.1
-# listen to this port
+# listen to this port to serve HTTP requests
 port: 7777
+# listen to this port to serve SOCKS requests
+socksPort: 7778
 # set verbose to see all requests
 verbose: true
 # set debug to view all requests and responses headers
@@ -268,7 +286,7 @@ credentials:
     login: USER_NAME
     password: encrypted:SECRET_KEY
 
-# list of rules to determine which proxy to use
+# list of rules to determine which proxy to use for HTTP proxy
 rules:
 # sample: direct connection for this host
   - host: "test-proxy-pac1"
@@ -303,6 +321,16 @@ rules:
   - host: "*"
     proxy: pac-mkt
     verbose: true
+
+# list of rules to determine which proxy to use for SOCKS proxy
+socksRules:
+  # sample: direct connection for this host
+  - host: "test-proxy-pac1"
+    proxy: direct
+    dns: 127.0.0.1
+  # sample: use '*' host as a catch all
+  - host: "*"
+    proxy: net
 
 # list some domain aliases, allowing to use 'EUR' instead of 'EUR.MSD.WORLD.COMPANY'
 domains:

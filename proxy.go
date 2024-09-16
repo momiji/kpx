@@ -260,51 +260,55 @@ func (p *Proxy) run() error {
 	}()
 
 	// start http server
-	ln, err := net.Listen("tcp4", fmt.Sprint(config.conf.Bind, ":", config.conf.Port))
-	if err != nil {
-		return stacktrace.Propagate(err, "unable to listen on %s:%d", config.conf.Bind, config.conf.Port)
-	}
-
-	hostPort := ln.Addr().String()
-	logInfo("[-] Use http://%s as your http proxy or http://%s/proxy.pac as your proxy pac url", hostPort, hostPort)
-
-	go func() {
-		for {
-			conn, err := ln.Accept()
-			if err != nil {
-				continue
-			}
-			ConfigureConn(conn)
-			if p.stopped() {
-				_ = conn.Close() // force closing client, ignore any error
-				break
-			}
-			if trace {
-				logInfo("new connection")
-			}
-			go func() {
-				c := p.requestsCount.IncrementAndGet(1)
-				if trace {
-					logInfo("connections count=%d", c)
-				}
-				NewProcess(p, conn).processHttp()
-				c = p.requestsCount.DecrementAndGet(1)
-				if trace {
-					logInfo("connections count=%d", c)
-				}
-			}()
+	if config.conf.Port != 0 {
+		ln, err := net.Listen("tcp4", fmt.Sprint(config.conf.Bind, ":", config.conf.Port))
+		if err != nil {
+			return stacktrace.Propagate(err, "unable to listen on %s:%d", config.conf.Bind, config.conf.Port)
 		}
-	}()
+
+		hostPort := ln.Addr().String()
+		logInfo("[-] Use %s as your http proxy or http://%s/proxy.pac as your proxy PAC url", hostPort, hostPort)
+
+		go func() {
+			for {
+				conn, err := ln.Accept()
+				if err != nil {
+					continue
+				}
+				ConfigureConn(conn)
+				if p.stopped() {
+					_ = conn.Close() // force closing client, ignore any error
+					break
+				}
+				if trace {
+					logInfo("new connection")
+				}
+				go func() {
+					c := p.requestsCount.IncrementAndGet(1)
+					if trace {
+						logInfo("connections count=%d", c)
+					}
+					NewProcess(p, conn).processHttp()
+					c = p.requestsCount.DecrementAndGet(1)
+					if trace {
+						logInfo("connections count=%d", c)
+					}
+				}()
+			}
+		}()
+	}
 
 	// start socks5 server
-	socks, err := socks5.NewClassicServer(fmt.Sprintf("%s:%d", config.conf.Bind, config.conf.Socks), config.conf.Bind, "", "", 0, 60)
-	if err != nil {
-		return stacktrace.Propagate(err, "unable to create socks server on %s:%d", config.conf.Bind, config.conf.Socks)
-	}
-	logInfo("[-] Use socks://%s as your socks proxy", socks.Addr)
-	err = socks.ListenAndServe(p)
-	if err != nil {
-		return stacktrace.Propagate(err, "unable to listen on %s:%d", config.conf.Bind, config.conf.Socks)
+	if config.conf.SocksPort != 0 {
+		socks, err := socks5.NewClassicServer(fmt.Sprintf("%s:%d", config.conf.Bind, config.conf.SocksPort), config.conf.Bind, "", "", 0, 60)
+		if err != nil {
+			return stacktrace.Propagate(err, "unable to create socks server on %s:%d", config.conf.Bind, config.conf.SocksPort)
+		}
+		logInfo("[-] Use %s as your socks5 proxy and configure it to use remote dns - curl syntax is 'curl -x socks5h://%s' or 'curl --socks5-hostname %s'", socks.Addr, socks.Addr, socks.Addr)
+		err = socks.ListenAndServe(p)
+		if err != nil {
+			return stacktrace.Propagate(err, "unable to listen on %s:%d", config.conf.Bind, config.conf.SocksPort)
+		}
 	}
 
 	// wait forever, only exit() can stop or a previous return with an error

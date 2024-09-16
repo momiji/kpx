@@ -65,8 +65,10 @@ Content should be similar to this:
 
 # listen to this ip, use 0.0.0.0 to listen on all ips
 bind: 127.0.0.1
-# listen to this port
+# listen to this port to serve HTTP requests
 port: 7777
+# listen to this port to serve SOCKS requests
+socksPort: 7778
 # set verbose to see all requests
 verbose: true
 # set debug to view all requests and responses headers
@@ -151,7 +153,7 @@ credentials:
     login: a443939
     password: encrypted:SECRET_KEY
 
-# list of rules to determine which proxy to use
+# list of rules to determine which proxy to use for HTTP proxy
 rules:
 # sample: direct connection for this host
   - host: "test-proxy-pac1"
@@ -186,6 +188,16 @@ rules:
   - host: "*"
     proxy: pac-mkt
     verbose: true
+
+# list of rules to determine which proxy to use for SOCKS proxy
+socksRules:
+  # sample: direct connection for this host
+  - host: "test-proxy-pac1"
+    proxy: direct
+    dns: 127.0.0.1
+  # sample: use '*' host as a catch all
+  - host: "*"
+    proxy: net
 
 # list some domain aliases, allowing to use 'EUR' instead of 'EUR.MSD.WORLD.COMPANY'
 domains:

@@ -351,21 +351,21 @@ func (c *Config) build() error {
 	}
 	c.conf.Credentials[kerberosName] = &kerberosCred
 	// build proxies
-	krb := 0
 	for name, proxy := range c.conf.Proxies {
 		proxyName := name
 		proxy.name = &proxyName
-		if *proxy.Type == ProxyKerberos || *proxy.Type == ProxyBasic {
+		if *proxy.Type == ProxyKerberos || *proxy.Type == ProxyBasic || *proxy.Type == ProxySocks {
 			//proxy.krb = fmt.Sprint(krb)
-			krb++
 			switch {
 			case proxy.Credential == nil:
-				name := fmt.Sprint("$null-", *proxy.name)
-				proxy.cred = &ConfCred{
-					name:   &name,
-					isNull: true,
+				if *proxy.Type == ProxyKerberos || *proxy.Type == ProxyBasic {
+					name := fmt.Sprint("$null-", *proxy.name)
+					proxy.cred = &ConfCred{
+						name:   &name,
+						isNull: true,
+					}
+					c.conf.Credentials[name] = proxy.cred
 				}
-				c.conf.Credentials[name] = proxy.cred
 			case *proxy.Credential == "":
 				name := fmt.Sprint("$user-", *proxy.name)
 				proxy.cred = &ConfCred{
@@ -931,7 +931,7 @@ func (pt ProxyType) Value() int {
 type Conf struct {
 	Bind                        string
 	Port                        int
-	Socks                       int
+	SocksPort                   int `yaml:"socksPort"`
 	Verbose                     bool
 	Debug                       bool
 	Trace                       bool

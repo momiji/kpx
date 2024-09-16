@@ -7,6 +7,7 @@ import (
 	"go/ast"
 	"hash/maphash"
 	"math"
+	"math/big"
 	"math/bits"
 	"math/rand"
 	"reflect"
@@ -33,6 +34,7 @@ var (
 	typeValue    = reflect.TypeOf((*Value)(nil)).Elem()
 	typeObject   = reflect.TypeOf((*Object)(nil))
 	typeTime     = reflect.TypeOf(time.Time{})
+	typeBigInt   = reflect.TypeOf((*big.Int)(nil))
 	typeBytes    = reflect.TypeOf(([]byte)(nil))
 )
 
@@ -45,14 +47,14 @@ const (
 )
 
 type global struct {
-	stash    stash
-	varNames map[unistring.String]struct{}
+	stash stash
 
 	Object   *Object
 	Array    *Object
 	Function *Object
 	String   *Object
 	Number   *Object
+	BigInt   *Object
 	Boolean  *Object
 	RegExp   *Object
 	Date     *Object
@@ -77,6 +79,8 @@ type global struct {
 	Int32Array        *Object
 	Float32Array      *Object
 	Float64Array      *Object
+	BigInt64Array     *Object
+	BigUint64Array    *Object
 
 	WeakSet *Object
 	WeakMap *Object
@@ -97,6 +101,7 @@ type global struct {
 	ObjectPrototype   *Object
 	ArrayPrototype    *Object
 	NumberPrototype   *Object
+	BigIntPrototype   *Object
 	StringPrototype   *Object
 	BooleanPrototype  *Object
 	FunctionPrototype *Object
@@ -830,7 +835,18 @@ func (r *Runtime) newPrimitiveObject(value Value, proto *Object, class string) *
 
 func (r *Runtime) builtin_Number(call FunctionCall) Value {
 	if len(call.Arguments) > 0 {
-		return call.Arguments[0].ToNumber()
+		switch t := call.Arguments[0].(type) {
+		case *Object:
+			primValue := t.toPrimitiveNumber()
+			if bigint, ok := primValue.(*valueBigInt); ok {
+				return intToValue((*big.Int)(bigint).Int64())
+			}
+			return primValue.ToNumber()
+		case *valueBigInt:
+			return intToValue((*big.Int)(t).Int64())
+		default:
+			return t.ToNumber()
+		}
 	} else {
 		return valueInt(0)
 	}
@@ -839,7 +855,19 @@ func (r *Runtime) builtin_Number(call FunctionCall) Value {
 func (r *Runtime) builtin_newNumber(args []Value, proto *Object) *Object {
 	var v Value
 	if len(args) > 0 {
-		v = args[0].ToNumber()
+		switch t := args[0].(type) {
+		case *Object:
+			primValue := t.toPrimitiveNumber()
+			if bigint, ok := primValue.(*valueBigInt); ok {
+				v = intToValue((*big.Int)(bigint).Int64())
+			} else {
+				v = primValue.ToNumber()
+			}
+		case *valueBigInt:
+			v = intToValue((*big.Int)(t).Int64())
+		default:
+			v = t.ToNumber()
+		}
 	} else {
 		v = intToValue(0)
 	}
@@ -1720,7 +1748,9 @@ Note that Value.Export() for a `Date` value returns time.Time in local timezone.
 
 # Maps
 
-Maps with string or integer key type are converted into host objects that largely behave like a JavaScript Object.
+Maps with string, integer, or float key types are converted into host objects that largely behave like a JavaScript Object.
+One noticeable difference is that the key order is not stable, as with maps in Go.
+Keys are converted to strings following the fmt.Sprintf("%v") convention.
 
 # Maps with methods
 
@@ -1830,6 +1860,8 @@ func (r *Runtime) toValue(i interface{}, origValue reflect.Value) Value {
 		return floatToValue(float64(i))
 	case float64:
 		return floatToValue(i)
+	case *big.Int:
+		return (*valueBigInt)(new(big.Int).Set(i))
 	case map[string]interface{}:
 		if i == nil {
 			return _null

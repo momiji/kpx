@@ -64,6 +64,9 @@ func (ks *KerberosStore) safeTryLogin(username, realm, password string, force bo
 	}
 	// create new client
 	krbClient := ks.kerberos.NewWithPassword(username, realm, password)
+	if krbClient == nil {
+		return nil, nil
+	}
 	err := krbClient.Login()
 	if err != nil {
 		if e, ok := err.(krberror.Krberror); ok {
@@ -82,9 +85,15 @@ func (ks *KerberosStore) safeGetToken(username, realm, password, protocol string
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "unable to login to kerberos")
 	}
+	if kcl == nil {
+		return &noAuth, nil
+	}
 	token, err := kcl.safeGetToken(protocol, host)
 	if err != nil {
 		kcl, err = ks.safeTryLogin(username, realm, password, true)
+		if kcl == nil {
+			return &noAuth, nil
+		}
 		if err != nil {
 			return nil, stacktrace.Propagate(err, "unable to login to kerberos")
 		}

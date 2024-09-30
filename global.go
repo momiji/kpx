@@ -24,6 +24,7 @@ var options Options
 var debug bool
 var trace bool
 var logger *logging.Logger
+var noAuth = ""
 
 // timeout in seconds for dialing to peer
 const DEFAULT_CONNECT_TIMEOUT = 10
@@ -41,6 +42,7 @@ const POOL_CLOSE_TIMEOUT_ADD = 5
 // config automatic reloading
 const RELOAD_TEST_TIMEOUT = 10
 const RELOAD_FORCE_TIMEOUT = 60 * 60
+const KDC_TEST_TIMEOUT = 10
 
 // max header size, to buffer request headers
 const HEADER_MAX_SIZE = 32 * 1024

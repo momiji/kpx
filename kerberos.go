@@ -8,20 +8,25 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"time"
 )
 
 type Kerberos struct {
 	config       *Config
-	krbCfg       *config.Config
-	clients      *string
-	explodedKdcs map[string][]string
+	krbCfg       *config.Config // all calls to NewWithPassword use a copy of this
+	explodedKdcs map[string]*Kdc
 	explodeMutex sync.Mutex
+}
+
+type Kdc struct {
+	kdcs []string
+	next time.Time
 }
 
 func NewKerberos(config *Config) *Kerberos {
 	return &Kerberos{
 		config:       config,
-		explodedKdcs: make(map[string][]string),
+		explodedKdcs: make(map[string]*Kdc),
 	}
 }
 
@@ -36,7 +41,9 @@ func (k *Kerberos) init() error {
 	}
 	// fix KDC list by extending KDC list with server ip, when it contains alpha characters
 	for i, realm := range krbCfg.Realms {
-		realm.KDC = k.explodeKdcs(realm.KDC)
+		// backup KDC
+		realm.KPasswdServer = realm.KDC
+		// update
 		krbCfg.Realms[i] = realm
 	}
 	k.krbCfg = krbCfg
@@ -49,77 +56,98 @@ func (k *Kerberos) explodeKdcs(realmKdcs []string) []string {
 	key := fmt.Sprintf("%v", realmKdcs)
 	val := k.explodedKdcs[key]
 	if val != nil {
-		return val
+		if len(val.kdcs) > 0 || time.Now().Before(val.next) {
+			return val.kdcs
+		}
 	}
-	newKdcs := make([]string, 0, 16)
+	newKdcs := make([]string, 0)
 	for _, kdcs := range realmKdcs {
 		for _, kdc := range strings.Split(kdcs, " ") {
 			kdc = strings.TrimSpace(kdc)
 			if strings.ContainsAny(strings.ToLower(kdc), "abcdefghijklmnopqrstuvwxyz") {
-				port := "88"
-				c := strings.LastIndex(kdc, ":")
-				if c >= 0 {
-					port = kdc[c+1:]
-					kdc = kdc[0:c]
-				}
-				ips, err := net.LookupHost(kdc)
+				host, port := splitHostPort(kdc, "127.0.0.1", "88", false)
+				ips, err := net.LookupHost(host)
 				if err != nil {
-					newKdcs = append(newKdcs, kdc+":"+port)
+					newKdcs = append(newKdcs, host+":"+port)
 				} else {
 					for _, ip := range ips {
 						newKdcs = append(newKdcs, ip+":"+port)
 					}
 				}
 			} else {
-				newKdcs = append(newKdcs, kdc)
+				host, port := splitHostPort(kdc, "127.0.0.1", "88", false)
+				newKdcs = append(newKdcs, host+":"+port)
 			}
 		}
 	}
-	k.explodedKdcs[key] = newKdcs
-	return newKdcs
-}
-
-func (k *Kerberos) NewWithPassword(username, realm, password string) *client.Client {
-	// derive realm from username if present
-	var domain string
-	username, domain = splitUsername(username)
-	if domain != "" {
-		realm = domain
-	}
-	if k.config.conf.Domains[realm] != nil {
-		realm = *k.config.conf.Domains[realm]
-	}
-	//inject default domain, which is required to be good for krb5 library to work (bug?)
-	krbCfg := k.krbCfg
-	if krbCfg.LibDefaults.DefaultRealm != realm {
-		newKrbCfg := *krbCfg
-		newKrbCfg.LibDefaults.DefaultRealm = realm
-		krbCfg = &newKrbCfg
-	}
-	//inject realm with default kdc equals to realm name
-	if krbCfg.Realms == nil {
-		newKrbCfg := *krbCfg
-		newKrbCfg.Realms = make([]config.Realm, 0)
-		krbCfg = &newKrbCfg
-	}
-	foundRealm := false
-	for _, r := range krbCfg.Realms {
-		if r.Realm == realm {
-			foundRealm = true
+	// check if any kdcs can be reached over the network
+	reachable := false
+	for _, kdc := range newKdcs {
+		if k.testConn(kdc) {
+			reachable = true
 			break
 		}
 	}
-	if !foundRealm {
-		newKrbCfg := *krbCfg
-		newRealm := config.Realm{
-			Realm: realm,
-			KDC:   []string{realm + ":88"},
+	// else, just empty the kdcs list so it can be checked later
+	if !reachable {
+		newKdcs = []string{}
+	}
+	// cache result
+	k.explodedKdcs[key] = &Kdc{
+		kdcs: newKdcs,
+		next: time.Now().Add(KDC_TEST_TIMEOUT * time.Second),
+	}
+	// return
+	return newKdcs
+}
+
+func (k *Kerberos) testConn(hostPort string) bool {
+	dialer := new(net.Dialer)
+	dialer.Timeout = time.Duration(k.config.conf.ConnectTimeout) * time.Second
+	checkConn, err := dialer.Dial("tcp4", hostPort)
+	if err != nil {
+		return false
+	}
+	_ = checkConn.Close()
+	return true
+}
+
+func (k *Kerberos) NewWithPassword(username, realm, password string) *client.Client {
+	// work on a copy of krbCfg
+	krbCfg := &(*k.krbCfg)
+	// derive realm from username if present
+	username, realm = splitUsername(username, realm)
+	if k.config.conf.Domains[realm] != nil {
+		realm = *k.config.conf.Domains[realm]
+	}
+	// set default domain, which is required to be good for krb5 library to work (bug?)
+	krbCfg.LibDefaults.DefaultRealm = realm
+	// inject realm with default kdc equals to realm name
+	var foundRealm *config.Realm
+	for _, r := range krbCfg.Realms {
+		if r.Realm == realm {
+			foundRealm = &r
+			break
 		}
-		//also explode kdc to all its known ips, allowing to find a working IP (firewall restriction)
-		//unfortunately, this is not working with cross-domain calls, as all domains must be defined but are not known
-		newRealm.KDC = k.explodeKdcs(newRealm.KDC)
-		newKrbCfg.Realms = append(newKrbCfg.Realms, newRealm)
-		krbCfg = &newKrbCfg
+	}
+	if foundRealm == nil {
+		// work on a copy of krbCfg
+		newRealm := config.Realm{
+			Realm:         realm,
+			KPasswdServer: []string{realm + ":88"},
+		}
+		// also explode kdc to all its known ips, allowing to find a working IP (firewall restriction)
+		// unfortunately, this is not working with cross-domain calls, as all domains must be defined but are not known
+		// newRealm.KDC = k.explodeKdcs(newRealm.KDC)
+		krbCfg.Realms = append(krbCfg.Realms, newRealm)
+		foundRealm = &newRealm
+	}
+	// if no kdcs, do not create client
+	if len(foundRealm.KDC) == 0 {
+		foundRealm.KDC = k.explodeKdcs(foundRealm.KPasswdServer)
+		if len(foundRealm.KDC) == 0 {
+			return nil
+		}
 	}
 	// create new client
 	logInfo("[-] Authenticating user '%s' on realm '%s'", username, realm)

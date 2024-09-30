@@ -285,6 +285,9 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 				p.proxy.stop()
 				return nil
 			}
+			if authorization == nil {
+				authorization = &noAuth
+			}
 		}
 
 		// forward request to proxy

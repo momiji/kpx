@@ -318,7 +318,7 @@ func cmd() {
 				logFatal("[-] Error: invalid empty value for flag -u")
 			}
 		}
-		options.login, options.domain = splitUsername(options.User)
+		options.login, options.domain = splitUsername(options.User, "")
 		if options.domain == "" {
 			logFatal("[-] Error: invalid value %q for flag -u: missing domain", options.User)
 		}
@@ -334,8 +334,7 @@ func cmd() {
 	trace = options.Trace
 }
 
-func splitUsername(username string) (string, string) {
-	var realm string
+func splitUsername(username, realm string) (string, string) {
 	if strings.Contains(username, `\`) {
 		p := strings.LastIndex(username, `\`)
 		realm = username[:p]

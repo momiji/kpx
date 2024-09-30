@@ -361,7 +361,7 @@ func (p *Proxy) generateKerberosNegotiate(username string, realm string, passwor
 		return nil, nil
 	}
 	token, err := p.kerberos.safeGetToken(username, realm, password, protocol, host)
-	if token == nil {
+	if err != nil {
 		return nil, stacktrace.Propagate(err, "unable to get kerberos token")
 	}
 	auth := "Negotiate " + *token
@@ -373,7 +373,7 @@ func (p *Proxy) generateKerberosNative(protocol string, host string) (*string, e
 		return nil, nil
 	}
 	token, err := NativeKerberos.SafeGetToken(protocol, host)
-	if token == nil {
+	if err != nil {
 		return nil, stacktrace.Propagate(err, "unable to get kerberos token")
 	}
 	auth := "Negotiate " + *token

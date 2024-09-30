@@ -488,19 +488,19 @@ func (c *Config) downloadPac(url string) (string, *PacExecutor, error) {
 	httpClient := &http.Client{Timeout: 30 * time.Second}
 	get, err := httpClient.Get(url)
 	if err != nil {
-		return "", nil, stacktrace.Propagate(err, "unable to download pac")
+		return "", nil, errors.New(fmt.Sprintf("unable to download pac: %v", err))
 	}
 	defer func(Body io.ReadCloser) {
 		_ = Body.Close()
 	}(get.Body)
 	// check status code
 	if get.StatusCode != 200 {
-		return "", nil, errors.New(fmt.Sprintf("unable to download pac (HTTP %d)", get.StatusCode))
+		return "", nil, errors.New(fmt.Sprintf("unable to download pac: HTTP %d", get.StatusCode))
 	}
 	// read all bytes
 	jsb, err := io.ReadAll(get.Body)
 	if err != nil {
-		return "", nil, stacktrace.Propagate(err, "unable to download pac")
+		return "", nil, errors.New(fmt.Sprintf("unable to download pac: %v", err))
 	}
 	js := string(jsb)
 	executor, err := c.pacToExecutor(js)

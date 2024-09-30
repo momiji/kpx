@@ -22,7 +22,8 @@ type Proxy struct {
 	newRequestId                atomic.Int32           // atomic - used in each process
 	requestsCount               atomic.Int32           // atomic - used in each connection
 	kerberos                    *KerberosStore         // not atomic - used only for get/set, no conditional update - initialized once
-	lastLoad                    time.Time              // not atomic - used only for get/set in one coroutine
+	lastModTime                 time.Time              // not atomic - used only for get/set in one coroutine
+	lastLoadTime                time.Time              // not atomic - used only for get/set in one coroutine
 	loadCounter                 atomic.Int32           // atomic - used in each process to test if config has been updated
 	reloadEvent                 *ManualResetEvent      //
 	fixWatchEvent               *ManualResetEvent      //
@@ -82,7 +83,8 @@ func (p *Proxy) load() error {
 		if err != nil {
 			return stacktrace.Propagate(err, "unable to stat file")
 		}
-		p.lastLoad = stat.ModTime()
+		p.lastModTime = stat.ModTime()
+		p.lastLoadTime = time.Now()
 	}
 	config, err := NewConfig(options.Config)
 	if err != nil {
@@ -137,7 +139,7 @@ func (p *Proxy) watch1() {
 	for {
 		select {
 		case <-p.reloadEvent.Channel():
-		case <-time.After(10 * time.Second):
+		case <-time.After(RELOAD_TEST_TIMEOUT * time.Second):
 		}
 		p.reloadEvent.Reset()
 		if trace {
@@ -201,12 +203,13 @@ func (p *Proxy) reload() {
 		return
 	}
 	oldConfig := p.getConfig()
-	if stat.ModTime() == p.lastLoad && !oldConfig.needFastReload {
+	if stat.ModTime() == p.lastModTime && time.Now().Before(p.lastLoadTime.Add(RELOAD_FORCE_TIMEOUT*time.Second)) && !oldConfig.needFastReload {
 		return
 	}
 	// test if we need to reload
 	newConfig, err := NewConfig(options.Config)
-	p.lastLoad = stat.ModTime()
+	p.lastModTime = stat.ModTime()
+	p.lastLoadTime = time.Now()
 	if err != nil {
 		logInfo("[-] Error while reloading configuration: %s", err)
 		return

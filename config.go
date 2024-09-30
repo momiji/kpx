@@ -2,6 +2,7 @@ package kpx
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,6 +29,8 @@ type Config struct {
 	disableAutoUpdate bool
 	hostsCache        map[string]*HostCache
 	hostsCacheMutex   sync.RWMutex
+	pacsCache         map[string]string
+	needFastReload    bool
 }
 
 type HostCache struct {
@@ -52,6 +55,7 @@ func NewConfig(name string) (*Config, error) {
 		},
 		lastProxies: map[string]time.Time{},
 		hostsCache:  map[string]*HostCache{},
+		pacsCache:   map[string]string{},
 	}
 	var err error
 	if name == "" {
@@ -450,35 +454,26 @@ func (c *Config) build() error {
 	for _, proxy := range c.conf.Proxies {
 		if proxy.isUsed && *proxy.Type == ProxyPac {
 			logInfo("[-] Loading proxy pac: %s", *proxy.Url)
-			httpClient := &http.Client{Timeout: 30 * time.Second}
-			get, err := httpClient.Get(*proxy.Url)
+			js, ex, err := c.downloadPac(*proxy.Url)
 			if err != nil {
-				return stacktrace.Propagate(err, "proxy '%s': unable to download pac", *proxy.name)
-			}
-			defer func(Body io.ReadCloser) {
-				_ = Body.Close()
-			}(get.Body)
-			jsb, err := io.ReadAll(get.Body)
-			if err != nil {
-				return stacktrace.Propagate(err, "proxy '%s': unable to download pac", *proxy.name)
-			}
-			proxy.pacJs = nil
-			// load js as unicode/utf-8
-			js := string(jsb)
-			pacExecutor, err := NewPac(js)
-			if err != nil {
-				// load js as iso-latin-1
-				jsb2, err := charmap.ISO8859_1.NewDecoder().Bytes(jsb)
-				if err == nil {
-					js = string(jsb2)
-					pacExecutor, err = NewPac(js)
-					if err != nil {
-						return stacktrace.Propagate(err, "proxy '%s': unable to create pac runtime", *proxy.name)
-					}
+				ok := false
+				if js, ok = c.pacsCache[*proxy.Url]; ok {
+					logInfo("[-] Error: unable to download or use pac, using cached js")
+					ex, _ = c.pacToExecutor(js)
+				} else {
+					logError("[-] Error: %v", err)
 				}
 			}
+			if js == "" {
+				noneJs := fmt.Sprintf(`function FindProxyForURL() { return "%s"; }`, c.conf.pacProxy)
+				proxy.pacJs = &noneJs
+				proxy.pacRuntime = nil
+				c.needFastReload = true
+				continue
+			}
 			proxy.pacJs = &js
-			proxy.pacRuntime = pacExecutor
+			proxy.pacRuntime = ex
+			c.pacsCache[*proxy.Url] = js
 			//
 			for _, cred := range c.splitCredentials(proxy.Credentials) {
 				c.conf.Credentials[cred].isUsed = true
@@ -486,6 +481,50 @@ func (c *Config) build() error {
 		}
 	}
 	return nil
+}
+
+func (c *Config) downloadPac(url string) (string, *PacExecutor, error) {
+	// download pac
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	get, err := httpClient.Get(url)
+	if err != nil {
+		return "", nil, stacktrace.Propagate(err, "unable to download pac")
+	}
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(get.Body)
+	// check status code
+	if get.StatusCode != 200 {
+		return "", nil, errors.New(fmt.Sprintf("unable to download pac (HTTP %d)", get.StatusCode))
+	}
+	// read all bytes
+	jsb, err := io.ReadAll(get.Body)
+	if err != nil {
+		return "", nil, stacktrace.Propagate(err, "unable to download pac")
+	}
+	js := string(jsb)
+	executor, err := c.pacToExecutor(js)
+	if err != nil {
+		return "", nil, err
+	}
+	return js, executor, nil
+}
+
+func (c *Config) pacToExecutor(js string) (*PacExecutor, error) {
+	// load js as unicode/utf-8
+	executor, err := NewPac(js)
+	if err != nil {
+		// load js as iso-latin-1
+		jsb2, err := charmap.ISO8859_1.NewDecoder().Bytes([]byte(js))
+		if err == nil {
+			js = string(jsb2)
+			executor, err = NewPac(js)
+			if err != nil {
+				return nil, stacktrace.Propagate(err, "unable to create pac runtime")
+			}
+		}
+	}
+	return executor, nil
 }
 
 func (c *Config) genProxy(name string, hosts string, port int) string {
@@ -787,8 +826,17 @@ func (c *Config) resolve(url, host string, rule *ConfRule) []*ConfProxy {
 }
 
 func (c *Config) resolvePac(url, host string, proxy *ConfProxy) *PacResult {
-	//pac, _ := NewPac(*proxy.pacJs)
-	pac := *proxy.pacRuntime
+	pac := proxy.pacRuntime
+	if pac == nil {
+		return &PacResult{
+			proxy:    ProxyNone.Name(),
+			isDirect: false,
+			isProxy:  false,
+			isSocks:  false,
+			hostPort: "",
+			hostOnly: "",
+		}
+	}
 	proxies, _ := pac.Run(url, host)
 	firstProxy := strings.TrimSpace(strings.Split(strings.TrimSpace(proxies), ";")[0])
 	split := strings.SplitN(firstProxy+" ", " ", 2)

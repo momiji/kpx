@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -16,34 +17,34 @@ import (
 )
 
 type Proxy struct {
-	config        *Config               // not atomic, used for get/set, no conditionall update
-	forceStop     bool                  // not atomic - used only for get/set, no conditional update
-	newRequestId  *AtomicInt            // atomic - used in each process
-	requestsCount *AtomicInt            // atomic - used in each connection
-	kerberos      *KerberosStore        // not atomic - used only for get/set, no conditional update - initialized once
-	lastLoad      time.Time             // not atomic - used only for get/set in one coroutine
-	loadCounter   *AtomicInt            // atomic - used in each process to test if config has been updated
-	reloadEvent   *ManualResetEvent     //
-	fixWatchEvent *ManualResetEvent     //
-	connPool      map[string]*list.List // must be synced - used in each process
-	poolMutex     sync.Mutex            // atomic - used in each process
+	config                      atomic.Pointer[Config] // atomic
+	forceStop                   bool                   // not atomic - used only for get/set, no conditional update
+	newRequestId                atomic.Int32           // atomic - used in each process
+	requestsCount               atomic.Int32           // atomic - used in each connection
+	kerberos                    *KerberosStore         // not atomic - used only for get/set, no conditional update - initialized once
+	lastLoad                    time.Time              // not atomic - used only for get/set in one coroutine
+	loadCounter                 atomic.Int32           // atomic - used in each process to test if config has been updated
+	reloadEvent                 *ManualResetEvent      //
+	fixWatchEvent               *ManualResetEvent      //
+	connPool                    map[string]*list.List  // must be synced - used in each process
+	poolMutex                   sync.Mutex             // atomic - used in each process
+	experimentalConnectionPools bool
 
 	// krbClients    map[string]*KerberosClient //
 	// configPtr     *unsafe.Pointer
 }
 
 func (p *Proxy) getConfig() *Config {
-	// return (*Config)(atomic.LoadPointer(p.configPtr))
-	return p.config
+	return p.config.Load()
 }
 
 func (p *Proxy) setConfig(config *Config) {
-	// atomic.StorePointer(p.configPtr, unsafe.Pointer(config))
-	// update config before incrementing counter so we're sure new process will use new config after it has been set
-	p.config = config
-	p.loadCounter.IncrementAndGet(1)
+	p.config.Store(config)
+	p.loadCounter.Add(1)
 	trace = config.conf.Trace
 	debug = config.conf.Debug
+	p.experimentalConnectionPools = config.conf.experimentalConnectionPools
+	//
 	features := ""
 	if config.conf.experimentalConnectionPools {
 		features += "," + EXPERIMENTAL_CONNETION_POOLS
@@ -58,11 +59,8 @@ func (p *Proxy) setConfig(config *Config) {
 
 func (p *Proxy) init() error {
 	p.forceStop = false
-	p.newRequestId = NewAtomicInt(0)
-	p.requestsCount = NewAtomicInt(0)
 	// p.krbClients = make(map[string]*KerberosClient)
 	// p.configPtr = (*unsafe.Pointer)(unsafe.Pointer(&p.unsafeConfig))
-	p.loadCounter = NewAtomicInt(0)
 	p.reloadEvent = NewManualResetEvent(false)
 	p.fixWatchEvent = NewManualResetEvent(false)
 	p.connPool = map[string]*list.List{}
@@ -202,7 +200,8 @@ func (p *Proxy) reload() {
 	if err != nil {
 		return
 	}
-	if stat.ModTime() == p.lastLoad {
+	oldConfig := p.getConfig()
+	if stat.ModTime() == p.lastLoad && !oldConfig.needFastReload {
 		return
 	}
 	// test if we need to reload
@@ -212,7 +211,6 @@ func (p *Proxy) reload() {
 		logInfo("[-] Error while reloading configuration: %s", err)
 		return
 	}
-	oldConfig := p.getConfig()
 	// test if we can hot-reload - no need for more credentials
 	for _, cred := range newConfig.conf.Credentials {
 		// start by copying old credentials
@@ -284,12 +282,12 @@ func (p *Proxy) run() error {
 					logInfo("new connection")
 				}
 				go func() {
-					c := p.requestsCount.IncrementAndGet(1)
+					c := p.requestsCount.Add(1)
 					if trace {
 						logInfo("connections count=%d", c)
 					}
 					NewProcess(p, conn).processHttp()
-					c = p.requestsCount.DecrementAndGet(1)
+					c = p.requestsCount.Add(-1)
 					if trace {
 						logInfo("connections count=%d", c)
 					}
@@ -393,7 +391,7 @@ type PooledConnectionInfo struct {
 
 func (p *Proxy) newPooledConn(dialer *net.Dialer, network string, proxy string, host string, context string, reqId int32) (bool, *PooledConnectionInfo, error) {
 	key := network + "/" + proxy + "/" + context + "/" + host
-	if p.config.conf.experimentalConnectionPools {
+	if p.experimentalConnectionPools {
 		p.poolMutex.Lock()
 		defer p.poolMutex.Unlock()
 		var items *list.List
@@ -432,7 +430,7 @@ func (p *Proxy) newPooledConn(dialer *net.Dialer, network string, proxy string, 
 }
 
 func (p *Proxy) pushConnToPool(info *PooledConnectionInfo, reqId int32) {
-	if p.config.conf.experimentalConnectionPools {
+	if p.experimentalConnectionPools {
 		if trace {
 			logInfo("(%d) pushing connection %d to pool for later reuse", reqId, info.reqId)
 		}

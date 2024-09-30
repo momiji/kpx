@@ -33,7 +33,7 @@ type Process struct {
 }
 
 func NewProcess(proxy *Proxy, conn net.Conn) *Process {
-	reqId := proxy.newRequestId.IncrementAndGet(1)
+	reqId := proxy.newRequestId.Add(1)
 	ti := newTraceInfo(reqId, "process")
 	if trace {
 		logTrace(ti, "create process")
@@ -43,7 +43,7 @@ func NewProcess(proxy *Proxy, conn net.Conn) *Process {
 		proxy:       proxy,
 		conn:        NewTimedConn(conn, newTraceInfo(reqId, "client")),
 		reqId:       reqId,
-		loadCounter: proxy.loadCounter.Get(),
+		loadCounter: proxy.loadCounter.Load(),
 		ti:          ti,
 	}
 }
@@ -471,7 +471,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 	// if KeepAlive, allow to reuse connection
 	if clientChannel.header.keepAlive {
 		// reuse connection only if config has not changed
-		if p.loadCounter == p.proxy.loadCounter.Get() {
+		if p.loadCounter == p.proxy.loadCounter.Load() {
 			// reuse proxy channel for next request
 			if pooledConnInfo != nil {
 				p.proxy.pushConnToPool(pooledConnInfo, p.reqId)

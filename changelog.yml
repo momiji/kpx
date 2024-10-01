@@ -1,3 +1,55 @@
+- semver: 1.9.0
+  date: 2024-10-01T18:06:45.930097409+02:00
+  packager: ""
+  changes:
+    - commit: 48369f31f1575064887c646c7783dafcf9402259
+      note: 'build: goreleaser arguments changed'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 41e91adf3f9926e157c7479de7559574ac5920b2
+      note: 'build: upgrade goreleaser configuration'
+      author:
+        name: Christian Bourgeois
+        email: momiji@users.noreply.github.com
+      committer:
+        name: Christian Bourgeois
+        email: momiji@users.noreply.github.com
+    - commit: 54cb71ee07708bf43bbb0eb248f942686c7b06d0
+      note: 'fix: no connection on no pac'
+      author:
+        name: Christian Bourgeois
+        email: momiji@users.noreply.github.com
+      committer:
+        name: Christian Bourgeois
+        email: momiji@users.noreply.github.com
+    - commit: 56490ffa9d7e9f03b5bfbcab27c5394f54a3b194
+      note: 'feat: lazy kerberos auth, allowing to start even without network'
+      author:
+        name: xtian
+        email: xxx
+      committer:
+        name: xtian
+        email: xxx
+    - commit: cc46e8d2ded853bd49decd696698cf3fa56e88be
+      note: 'fix: force config reload once every hour to refresh PAC'
+      author:
+        name: xtian
+        email: xxx
+      committer:
+        name: xtian
+        email: xxx
+    - commit: bca5e0abadf3baa617430e5bfa76284392ee0f91
+      note: 'feat: pac cache and fast reload'
+      author:
+        name: Christian Bourgeois
+        email: momiji@users.noreply.github.com
+      committer:
+        name: Christian Bourgeois
+        email: momiji@users.noreply.github.com
 - semver: 1.8.0
   date: 2024-09-16T13:50:51.312930155+02:00
   packager: ""

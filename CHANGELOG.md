@@ -1,4 +1,12 @@
 
+## [1.9.0](https://github.com/momiji/kpx/compare/v1.8.0...v1.9.0) (2024-10-01)
+
+* fix: no connection on no pac [54cb71ee](https://github.com/momiji/kpx/commit/54cb71ee07708bf43bbb0eb248f942686c7b06d0)
+* feat: lazy kerberos auth, allowing to start even without network [56490ffa](https://github.com/momiji/kpx/commit/56490ffa9d7e9f03b5bfbcab27c5394f54a3b194)
+* fix: force config reload once every hour to refresh PAC [cc46e8d2](https://github.com/momiji/kpx/commit/cc46e8d2ded853bd49decd696698cf3fa56e88be)
+* feat: pac cache and fast reload [bca5e0ab](https://github.com/momiji/kpx/commit/bca5e0abadf3baa617430e5bfa76284392ee0f91)
+
+
 ## [1.8.0](https://github.com/momiji/kpx/compare/v1.7.2...v1.8.0) (2024-09-16)
 
 * fix: upgrade dependencies [390e6473](https://github.com/momiji/kpx/commit/390e64739194492120028d04a90cb453473dd5d7)

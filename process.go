@@ -271,6 +271,11 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 				logError("%s => dial: %#s", p.logLine, err)
 				return p.closeChannels(clientChannel, proxyChannel)
 			}
+			// if conn is nil - proxyType=PAC and PAC not downloaded, so it did not resolve to an other proxy
+			if conn == nil {
+				logInfo("%s => dial: no connection available", p.logLine)
+				return p.closeChannels(clientChannel, proxyChannel)
+			}
 			ConfigureConn(conn)
 			proxyChannel = &ProxyRequest{
 				conn: NewTimedConn(conn, newTraceInfo(p.reqId, "proxy")),

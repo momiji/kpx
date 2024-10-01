@@ -1,4 +1,7 @@
 # Make sure to check the documentation at https://goreleaser.com
+
+version: 2
+
 before:
   hooks:
     - go mod tidy
@@ -25,7 +28,7 @@ archives:
     - CHANGELOG.md
 
 snapshot:
-  name_template: "{{ incpatch .Version }}-rc-{{.ShortCommit}}"
+  version_template: "{{ incpatch .Version }}-rc-{{.ShortCommit}}"
 
 changelog:
   sort: asc

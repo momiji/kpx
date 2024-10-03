@@ -20,12 +20,12 @@ func createKey() []byte {
 }
 
 func readKey() []byte {
-	key, err := os.ReadFile(AppName + ".key")
+	key, err := os.ReadFile(options.KeyFile)
 	if err == nil {
 		return key
 	}
 	key = createKey()
-	err = os.WriteFile(AppName+".key", key, 0640)
+	err = os.WriteFile(options.KeyFile, key, 0600)
 	if err != nil {
 		panic(err)
 	}
@@ -77,7 +77,7 @@ func decrypt(data string) (string, error) {
 }
 
 func encryptPassword() {
-	fmt.Printf("Encrypt a password - key location is `%s.key`\n", AppName)
+	fmt.Printf("Encrypt a password - key location is `%s`\n", options.KeyFile)
 	fmt.Print("Password: ")
 	pwdBytes, err := gopass.GetPasswdMasked() // looks like password always exists even if error
 	if err != nil {

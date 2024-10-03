@@ -37,6 +37,7 @@ Example:
 
 Options:
       -c, --config=<config>      config file, in yaml format (defaults to '{{.AppName}}.yaml' then '{{.AppName}}.json')
+      -k, --key=<key>            encryption key location (defaults to '{{.AppName}}.key')
       -l, --listen=<[ip:]port>   listen to this ip port (ip defaults to 127.0.0.1, port defaults to 8080)
       -u, --user=<user@domain>   user for authentication, like login@domain or domain\login
                                  ! domain is case-sensitive in Kerberos, however it is uppercased as all internet usage seems to be uppercase
@@ -247,6 +248,8 @@ func cmd() {
 	flag.Usage = usage
 	flag.StringVar(&options.Config, "c", "", "")
 	flag.StringVar(&options.Config, "config", "", "")
+	flag.StringVar(&options.KeyFile, "k", AppName+".key", "")
+	flag.StringVar(&options.KeyFile, "key", AppName+".key", "")
 	flag.StringVar(&options.Listen, "l", "", "")
 	flag.StringVar(&options.Listen, "listen", "", "")
 	flag.StringVar(&options.User, "u", "", "")

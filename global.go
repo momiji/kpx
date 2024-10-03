@@ -57,6 +57,7 @@ type Options struct {
 	Timeout     int
 	Encrypt     bool
 	Config      string
+	KeyFile     string
 	Listen      string
 	Proxy       string
 	Debug       bool

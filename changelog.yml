@@ -1,3 +1,31 @@
+- semver: 1.9.1
+  date: 2024-10-03T22:49:32.152476766+02:00
+  packager: ""
+  changes:
+    - commit: 67ed73ea20529472cc4a1b02dad312ed70e5c176
+      note: 'fix: add missing options in usage help'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 59c7ed5d3e4c3636e29cb274601cd5b0bb656861
+      note: 'fix: typos'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: f2d21c04b4fffa23ae94b532bad60a8fd7b3c7bd
+      note: 'feat: add -k|--key option for encryption key location'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
 - semver: 1.9.0
   date: 2024-10-01T18:06:45.930097409+02:00
   packager: ""

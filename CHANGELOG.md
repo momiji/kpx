@@ -1,4 +1,11 @@
 
+## [1.9.1](https://github.com/momiji/kpx/compare/v1.9.0...v1.9.1) (2024-10-03)
+
+* fix: add missing options in usage help [67ed73ea](https://github.com/momiji/kpx/commit/67ed73ea20529472cc4a1b02dad312ed70e5c176)
+* fix: typos [59c7ed5d](https://github.com/momiji/kpx/commit/59c7ed5d3e4c3636e29cb274601cd5b0bb656861)
+* feat: add -k|--key option for encryption key location [f2d21c04](https://github.com/momiji/kpx/commit/f2d21c04b4fffa23ae94b532bad60a8fd7b3c7bd)
+
+
 ## [1.9.0](https://github.com/momiji/kpx/compare/v1.8.0...v1.9.0) (2024-10-01)
 
 * fix: no connection on no pac [54cb71ee](https://github.com/momiji/kpx/commit/54cb71ee07708bf43bbb0eb248f942686c7b06d0)

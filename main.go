@@ -28,9 +28,9 @@ var UsageTemplate = `
 It exposes an anonymous proxy, automatically injecting required credentials when forwarding requests.
 It also provides a javascript proxy.pac to be used in browser or system proxy, at 'http://HOST:PORT/proxy.pac'.
 
-Usage: {{.AppName}} [-dtv] [-u <user@domain>] [-l <[ip:]port>] [-c <config>]
+Usage: {{.AppName}} [-dtv] [-u <user@domain>] [-l <[ip:]port>] [-c <config>] [-k <key>]
        {{.AppName}} [-dtv] [-u <user@domain>] [-l <[ip:]port>] [--timeout TIMEOUT] <proxy:port>
-       {{.AppName}} -e
+       {{.AppName}} -e [-k <key>]
 
 Example:
        {{.AppName}} -u user_login@eur -l 8888 proxy:8080

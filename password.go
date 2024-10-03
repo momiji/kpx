@@ -49,8 +49,8 @@ func encrypt(data string) string {
 		panic(err.Error())
 	}
 	ciphertext := gcm.Seal(nonce, nonce, []byte(data), nil)
-	cipher := base64.StdEncoding.EncodeToString(ciphertext)
-	return cipher
+	encrypted := base64.StdEncoding.EncodeToString(ciphertext)
+	return encrypted
 }
 
 func decrypt(data string) (string, error) {
@@ -69,11 +69,11 @@ func decrypt(data string) (string, error) {
 	}
 	nonceSize := gcm.NonceSize()
 	nonce, ciphertext := encoded[:nonceSize], encoded[nonceSize:]
-	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	decrypted, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
 		return "", err
 	}
-	return string(plaintext), nil
+	return string(decrypted), nil
 }
 
 func encryptPassword() {

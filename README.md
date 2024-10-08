@@ -177,7 +177,45 @@ socksRules:
 ### Help
 
 ```yaml
-$ kpx -h
+$ kpx --help
+kpx 1.9.1 - https://github.com/momiji/kpx
+
+kpx is a Kerberos authenticating HTTP/1.1 proxy, that forwards requests to any upstream proxies and servers.
+It exposes an anonymous proxy, automatically injecting required credentials when forwarding requests.
+It also provides a javascript proxy.pac to be used in browser or system proxy, at 'http://HOST:PORT/proxy.pac'.
+
+Usage: kpx [-dtv] [-u <user@domain>] [-l <[ip:]port>] [-c <config>] [-k <key>]
+       kpx [-dtv] [-u <user@domain>] [-l <[ip:]port>] [--timeout TIMEOUT] <proxy:port>
+       kpx -e [-k <key>]
+
+Example:
+       kpx -u user_login@eur -l 8888 proxy:8080
+
+Options:
+      -c, --config=<config>      config file, in yaml format (defaults to 'kpx.yaml' then 'kpx.json')
+      -k, --key=<key>            encryption key location (defaults to 'kpx.key')
+      -l, --listen=<[ip:]port>   listen to this ip port (ip defaults to 127.0.0.1, port defaults to 8080)
+      -u, --user=<user@domain>   user for authentication, like login@domain or domain\login
+                                 ! domain is case-sensitive in Kerberos, however it is uppercased as all internet usage seems to be uppercase
+                                 domain is automatically expanded to .EXAMPLE.COM when set from command line
+                                 can also replace user in configuration file, when there is only one user defined
+          --timeout TIMEOUT      automatically stop kpx after TIMEOUT seconds, when run without config file, defaults to 3600s = 1h (set to 0 to disable)
+      -e, --encrypt              encrypt a password, encryption key location is kpx.key
+      -d, --debug                run in debug mode, displaying all headers
+      -t, --trace                run in trace mode, displaying everything
+      -v, --verbose              run in verbose mode, displaying all requests (automatically set if run without config file)
+      -h, --help                 show full help with config file format
+      -V, --version              show version
+
+Note1: remote HTTPS proxies has not been tested, as none was available for testing.
+Note2: failover proxies can be configured for a single rule "proxy: proxy1,proxy2,...", but only works for non-pac proxies, and assumes all proxies are "almost" of the same type.
+Note3: failover hosts can be configured for a single proxy "host: host1,host2,...", but only works for non-pac proxies.
+
+
+CONFIG FILE
+===========
+A config file can be provided as json or yaml format.
+Content should be similar to this:
 
 # listen to this ip, use 0.0.0.0 to listen on all ips
 bind: 127.0.0.1
@@ -211,17 +249,12 @@ proxies:
     type: pac
     url: http://broproxycfg.int.world.company/ProxyPac/proxy.pac
     credentials: user
-# another PAC proxy. verbosity can also be set at proxy level. multiple credentials can also be used if resolved proxy may use different credentiels
+# another PAC proxy. verbosity can also be set at proxy level
   pac-ret:
     type: pac
     url: http://broproxycfg.int.world.company/ProxyPac/proxy.pac
-    credentials: user user2
-    verbose: true
-# another PAC proxy. native kerberos can also be used on Windows and Linux (and MacOS?) 
-  pac-krb:
-    type: pac
-    url: http://broproxycfg.int.world.company/ProxyPac/proxy.pac
-    credentials: kerberos
+    credentials: user
+        verbose: true
 # sample of kerberos proxy. 'pac' is used to get the kerberos realm in PAC proxies at runtime
   mkt:
     type: kerberos
@@ -239,20 +272,12 @@ proxies:
     port: 8080
     credential: user
     pac: proxy-sgt*
-  krb:
-    type: kerberos
-    spn: HTTP
-    realm: EUR.MSD.WORLD.COMPANY
-    host: proxy-krb.si.company
-    port: 8080
-    credential: kerberos
-    pac: proxy-krb*
 # sample of anonymous (no authentication) proxy. 'ssl' for HTTPS proxy
   net:
     type: anonymous
     host: 127.0.0.1
     port: 3128
-    ssl: false
+        ssl: false
 # sample of socks proxy
   nets:
     type: socks
@@ -278,12 +303,8 @@ proxies:
 credentials:
 # sample of credential. if no 'password', it will be asked on startup. the same for login
 # password can be provided as clear text, or encrypted using '-e' option
-# 'kerberos' is automatically created as native Windows/Linux/MacOS? kerberos
   user:
     login: a443939
-    password: encrypted:SECRET_KEY
-  user2:
-    login: USER_NAME
     password: encrypted:SECRET_KEY
 
 # list of rules to determine which proxy to use for HTTP proxy
@@ -299,7 +320,7 @@ rules:
     proxy: devs
     dns: 127.0.0.1
 # sample: multiple hosts, separated by '|'. add '!' at the beginning to inverse rule. verbosity can also be set at rule level
-  - host: 192.168.2.6|project-homo*
+  - host: 192.168.2.6|osmose-homo*
     proxy: devs
   - host: "*.safe.company|*.si.company|*.ressources.company|*.world.company"
     proxy: direct
@@ -308,7 +329,7 @@ rules:
   - host: "re:^github\.com$|^gitlab.com$"
     proxy: mkt
     verbose: true
-# sample: use mitm to have man-in-the-middle hijacked connections, CA is written in kpx.ca.crt 
+# sample: use mitm to have man-int-the-middle hijacked connections, CA is written in kpx.ca.crt
   - host: "update.microsoft.com"
     proxy: mkt
     verbose: true

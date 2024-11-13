@@ -485,7 +485,7 @@ func (c *Config) build() error {
 
 func (c *Config) downloadPac(url string) (string, *PacExecutor, error) {
 	// download pac
-	httpClient := &http.Client{Timeout: 30 * time.Second}
+	httpClient := c.newHttpClient()
 	get, err := httpClient.Get(url)
 	if err != nil {
 		return "", nil, errors.New(fmt.Sprintf("unable to download pac: %v", err))
@@ -996,6 +996,7 @@ type Conf struct {
 	Check                       *bool
 	Update                      bool
 	Restart                     bool
+	UseEnvProxy                 bool
 	Experimental                string // space/comma separated list of features
 	experimentalConnectionPools bool   // add a connection pool for http
 	experimentalHostsCache      bool   // add a hosts cache for proxy lookup - fine grained url lookup is then disabled
@@ -1065,4 +1066,13 @@ type PacResult struct {
 	isSocks  bool
 	hostPort string
 	hostOnly string
+}
+
+func (c *Config) newHttpClient() *http.Client {
+	httpTransport := http.DefaultTransport.(*http.Transport).Clone()
+	if !c.conf.UseEnvProxy {
+		httpTransport.Proxy = nil
+	}
+	httpClient := &http.Client{Timeout: 30 * time.Second, Transport: httpTransport}
+	return httpClient
 }

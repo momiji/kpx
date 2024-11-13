@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"runtime"
 	"strconv"
@@ -88,6 +87,8 @@ check: true
 update: false
 # exit after update, defaults to false, use only if a restart mechanism is implemented outside
 restart: false
+# use proxy environment variables for downloading updates and pac files, defaults to false
+useEnvProxy: false
 
 # list of proxies
 proxies:
@@ -432,7 +433,7 @@ func update(proxy *Proxy) {
 		return
 	}
 	logInfo("[-] Checking for updates: %s", url)
-	httpClient := &http.Client{Timeout: 30 * time.Second}
+	httpClient := config.newHttpClient()
 	get, err := httpClient.Get(url)
 	if err != nil {
 		logError("[-] Update failed: %v", err)

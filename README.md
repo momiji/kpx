@@ -241,6 +241,9 @@ check: true
 update: false
 # exit after update, defaults to false, use only if a restart mechanism is implemented outside
 restart: false
+# use proxy environment variables for downloading updates and pac files, defaults to false
+useEnvProxy: false
+
 
 # list of proxies
 proxies:

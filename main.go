@@ -388,6 +388,11 @@ func start() {
 	if err != nil {
 		logFatal("[-] Error: %s", err)
 	}
+	// load console ui
+	proxy.consoleUI = proxy.getConfig().conf.experimentalConsoleUI
+	if proxy.consoleUI {
+		go proxy.ui()
+	}
 	// reload task
 	go proxy.watch1()
 	go proxy.watch2()
@@ -561,8 +566,7 @@ func update(proxy *Proxy) {
 
 	// exit
 	logInfo("[-] Exiting on update (restart=true)")
-	logDestroy()
-	os.Exit(200)
+	proxy.exit(200)
 }
 
 func jsString(v map[string]any, s string) string {

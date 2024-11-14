@@ -3,6 +3,7 @@ package kpx
 import (
 	"fmt"
 	"github.com/ccding/go-logging/logging"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -24,6 +25,10 @@ func logInit() {
 
 func logDestroy() {
 	logger.Destroy()
+}
+
+func logWriter(writer io.Writer) {
+	logger.SetWriter(writer)
 }
 
 func logFlush() {
@@ -75,5 +80,5 @@ func logError(format string, args ...interface{}) {
 func logFatal(format string, args ...interface{}) {
 	logger.Fatalf(format, args...)
 	logger.Destroy()
-	os.Exit(1)
+	os.Exit(1) // TODO p.exit ?
 }

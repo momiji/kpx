@@ -18,6 +18,7 @@ The proxy can be configured to:
 - support automatic **update** and **restart** when configured
 - use experimental feature `connection-pools` to reuse http connections when possible
 - use experimental feature `hosts-cache` to cache proxy lookup result by host:port (incompatible with url matching)
+- use experimental feature `console-ui` to display a console UI to view proxied connections
 
 Alternatives tools that can be used:
 
@@ -243,7 +244,8 @@ update: false
 restart: false
 # use proxy environment variables for downloading updates and pac files, defaults to false
 useEnvProxy: false
-
+# experimental features, defaults to none
+experimental: connection-pools hosts-cache console-ui
 
 # list of proxies
 proxies:
@@ -257,7 +259,7 @@ proxies:
     type: pac
     url: http://broproxycfg.int.world.company/ProxyPac/proxy.pac
     credentials: user
-        verbose: true
+    verbose: true
 # sample of kerberos proxy. 'pac' is used to get the kerberos realm in PAC proxies at runtime
   mkt:
     type: kerberos
@@ -280,7 +282,7 @@ proxies:
     type: anonymous
     host: 127.0.0.1
     port: 3128
-        ssl: false
+    ssl: false
 # sample of socks proxy
   nets:
     type: socks

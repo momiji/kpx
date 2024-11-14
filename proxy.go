@@ -3,13 +3,16 @@ package kpx
 import (
 	"container/list"
 	"fmt"
+	"github.com/momiji/kpx/ui"
 	"math"
 	"net"
 	"os"
+	"os/signal"
 	"path"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/txthinking/socks5"
@@ -32,6 +35,7 @@ type Proxy struct {
 	connPool                    map[string]*list.List  // must be synced - used in each process
 	poolMutex                   sync.Mutex             // atomic - used in each process
 	experimentalConnectionPools bool
+	consoleUI                   bool
 
 	// krbClients    map[string]*KerberosClient //
 	// configPtr     *unsafe.Pointer
@@ -249,8 +253,7 @@ func (p *Proxy) run() error {
 	if options.Timeout > 0 {
 		go func() {
 			<-time.After(time.Duration(options.Timeout) * time.Second)
-			logDestroy()
-			os.Exit(0)
+			p.exit(0)
 		}()
 		logInfo("[-] Proxy will exit automatically in %v seconds", options.Timeout)
 	}
@@ -356,8 +359,7 @@ func (p *Proxy) UDPHandle(server *socks5.Server, addr *net.UDPAddr, datagram *so
 
 func (p *Proxy) stop() {
 	p.forceStop = true
-	logDestroy()
-	os.Exit(1)
+	p.exit(1)
 }
 
 func (p *Proxy) stopped() bool {
@@ -507,4 +509,37 @@ func (p *Proxy) isAllowed(ip string, acl []string) bool {
 		}
 	}
 	return acl == nil || len(acl) == 0
+}
+
+func (p *Proxy) exit(code int) {
+	if p.consoleUI {
+		// force stop UI
+		ui.StopUI()
+		<-ui.StoppedUI
+	}
+	logDestroy()
+	os.Exit(code)
+}
+
+func (p *Proxy) ui() {
+	// exit signal handler to close ui correctly
+	exitSignal := make(chan os.Signal, 1)
+	signal.Notify(exitSignal, syscall.SIGINT, syscall.SIGTERM)
+	// set stdin as non-block for linux
+	syscall.SetNonblock(0, true)
+	// replace logger writer with suspendable ui writer
+	logWriter(ui.WriterUI(os.Stdout))
+	// start ui
+	go ui.RunUI(true)
+	// wait for exit signal
+loop:
+	for {
+		select {
+		case <-exitSignal:
+			ui.StopUI()
+		case <-ui.StoppedUI:
+			break loop
+		}
+		p.exit(0)
+	}
 }

@@ -18,6 +18,7 @@ The proxy can be configured to:
 - support automatic **update** and **restart** when configured
 - use experimental feature `connection-pools` to reuse http connections when possible
 - use experimental feature `hosts-cache` to cache proxy lookup result by host:port (incompatible with url matching)
+- use experimental feature `console-ui` to display a console UI to view proxied connections
 
 Alternatives tools that can be used:
 
@@ -247,6 +248,8 @@ update: false
 restart: false
 # use proxy environment variables for downloading updates and pac files, defaults to false
 useEnvProxy: false
+# experimental features, defaults to none
+experimental: connection-pools hosts-cache console-ui
 
 # list of proxies
 proxies:

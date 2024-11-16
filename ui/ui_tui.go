@@ -25,7 +25,7 @@ func rateFormat(rate *ratecounter.Rate) string {
 	return strings.ReplaceAll(humanize.IBytes(uint64(rate.RatePer(1*time.Second))), "i", "")
 }
 
-func setCell(i, j int, s string, w int, left bool) {
+func setCell(i, j int, s string, w int, left bool, isRemoved bool) {
 	align := tview.AlignRight
 	if left {
 		align = tview.AlignLeft
@@ -67,20 +67,20 @@ func setCell(i, j int, s string, w int, left bool) {
 		color = tcell.ColorBlack
 		//s = "[::r]" + s + "[::R]"
 	}
-	if i == 5 {
+	if isRemoved {
 		bgcolor = tcell.ColorDarkRed
 	}
 	// cell
 	table.SetCell(i, j, table.GetCell(i, j).SetAlign(align).SetTextColor(color).SetBackgroundColor(bgcolor).SetText(s))
 }
 
-func setRow(row int, urlWidth int, reqId string, url string, bytesSent string, bytesReceived string, bytesSentPerSecond string, bytesReceivedPerSecond string) {
-	setCell(row, 0, reqId, 5, false)
-	setCell(row, 1, url, -urlWidth, true)
-	setCell(row, 2, bytesReceived, 15, false)
-	setCell(row, 3, bytesSent, 15, false)
-	setCell(row, 4, bytesReceivedPerSecond, 7, false)
-	setCell(row, 5, bytesSentPerSecond, 7, false)
+func setRow(row int, removed bool, urlWidth int, reqId string, url string, bytesSent string, bytesReceived string, bytesSentPerSecond string, bytesReceivedPerSecond string) {
+	setCell(row, 0, reqId, 5, false, removed)
+	setCell(row, 1, url, -urlWidth, true, removed)
+	setCell(row, 2, bytesReceived, 15, false, removed)
+	setCell(row, 3, bytesSent, 15, false, removed)
+	setCell(row, 4, bytesReceivedPerSecond, 7, false, removed)
+	setCell(row, 5, bytesSentPerSecond, 7, false, removed)
 }
 
 func appInit() {
@@ -185,16 +185,25 @@ func appUpdate() {
 					if urlWidth < 20 {
 						urlWidth = 20
 					}
-					setRow(0, urlWidth, "ID", "URL", "RECV", "SENT", "RECV/S", "SENT/S")
-					trafficRows := Traffic.RowsCopy()
-					for i, row := range trafficRows {
-						if i+1 >= screenHeight {
+					setRow(0, false, urlWidth, "ID", "URL", "RECV", "SENT", "RECV/S", "SENT/S")
+					trafficRows := TrafficData.RowsCopy()
+					countRows := 0
+					for _, row := range trafficRows {
+						if countRows+1 >= screenHeight {
 							break
 						}
-						setRow(i+1, urlWidth, strconv.Itoa(int(row.ReqId)), row.Url, bytesFormat(row.BytesSentPerSecond), bytesFormat(row.BytesReceivedPerSecond), rateFormat(row.BytesSentPerSecond), rateFormat(row.BytesReceivedPerSecond))
+						removed := false
+						if !row.Removed.IsZero() {
+							if time.Since(row.Removed) > 2*time.Second {
+								continue
+							}
+							removed = true
+						}
+						countRows++
+						setRow(countRows, removed, urlWidth, strconv.Itoa(int(row.ReqId)), row.Url, bytesFormat(row.BytesSentPerSecond), bytesFormat(row.BytesReceivedPerSecond), rateFormat(row.BytesSentPerSecond), rateFormat(row.BytesReceivedPerSecond))
 					}
 					// remove any extra rows
-					for i := table.GetRowCount() - 1; i > len(trafficRows); i-- {
+					for i := table.GetRowCount() - 1; i > countRows; i-- {
 						table.RemoveRow(i)
 					}
 					// remove hidden rows

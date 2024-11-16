@@ -10,10 +10,9 @@ import (
 type TrafficRow struct {
 	ReqId                  int32
 	Url                    string
-	BytesSent              int64
-	BytesReceived          int64
 	BytesSentPerSecond     *ratecounter.Rate
 	BytesReceivedPerSecond *ratecounter.Rate
+	Removed                time.Time
 }
 
 type TrafficTable struct {
@@ -21,7 +20,7 @@ type TrafficTable struct {
 	lock  *sync.RWMutex
 }
 
-func NewTraffic(reqId int32, url string) *TrafficRow {
+func NewTrafficRow(reqId int32, url string) *TrafficRow {
 	return &TrafficRow{
 		ReqId:                  reqId,
 		Url:                    url,
@@ -60,7 +59,19 @@ func (t *TrafficTable) RowsCopy() []*TrafficRow {
 	return slices.Clone(t.table)
 }
 
-var Traffic = TrafficTable{
+func (t *TrafficTable) Remove(row *TrafficRow) {
+	row.Removed = time.Now()
+}
+
+func (t *TrafficTable) RemoveDead() {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	t.table = slices.DeleteFunc(t.table, func(row *TrafficRow) bool {
+		return !row.Removed.IsZero() && time.Since(row.Removed) > 5*time.Second
+	})
+}
+
+var TrafficData = TrafficTable{
 	table: make([]*TrafficRow, 0),
 	lock:  &sync.RWMutex{},
 }

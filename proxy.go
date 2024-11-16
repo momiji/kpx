@@ -327,6 +327,7 @@ func (p *Proxy) run() error {
 		}()
 	}
 
+	// start console ui and data cleanup
 	if p.consoleUI {
 		logInfo("[-] Starting console UI")
 		go func() {
@@ -334,6 +335,15 @@ func (p *Proxy) run() error {
 			ui.SwitchUI(false)
 		}()
 	}
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		for {
+			select {
+			case <-ticker.C:
+				ui.TrafficData.RemoveDead()
+			}
+		}
+	}()
 
 	// wait forever, only exit() can stop or a previous return with an error
 	select {

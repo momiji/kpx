@@ -312,20 +312,34 @@ func (p *Proxy) run() error {
 	}
 
 	// start socks5 server
+	errChan := make(chan error)
 	if config.conf.SocksPort != 0 {
 		socks, err := socks5.NewClassicServer(fmt.Sprintf("%s:%d", config.conf.Bind, config.conf.SocksPort), config.conf.Bind, "", "", 0, 60)
 		if err != nil {
 			return stacktrace.Propagate(err, "unable to create socks server on %s:%d", config.conf.Bind, config.conf.SocksPort)
 		}
 		logInfo("[-] Use %s as your socks5 proxy and configure it to use remote dns - curl syntax is 'curl -x socks5h://%s' or 'curl --socks5-hostname %s'", socks.Addr, socks.Addr, socks.Addr)
-		err = socks.ListenAndServe(p)
-		if err != nil {
-			return stacktrace.Propagate(err, "unable to listen on %s:%d", config.conf.Bind, config.conf.SocksPort)
-		}
+		go func() {
+			err = socks.ListenAndServe(p)
+			if err != nil {
+				errChan <- stacktrace.Propagate(err, "unable to listen on %s:%d", config.conf.Bind, config.conf.SocksPort)
+			}
+		}()
+	}
+
+	if p.consoleUI {
+		logInfo("[-] Starting console UI")
+		go func() {
+			time.Sleep(1 * time.Second)
+			ui.SwitchUI(false)
+		}()
 	}
 
 	// wait forever, only exit() can stop or a previous return with an error
-	select {}
+	select {
+	case err := <-errChan:
+		return err
+	}
 }
 
 func (p *Proxy) TCPHandle(server *socks5.Server, conn *net.TCPConn, request *socks5.Request) error {
@@ -525,8 +539,6 @@ func (p *Proxy) ui() {
 	// exit signal handler to close ui correctly
 	exitSignal := make(chan os.Signal, 1)
 	signal.Notify(exitSignal, syscall.SIGINT, syscall.SIGTERM)
-	// set stdin as non-block for linux
-	syscall.SetNonblock(0, true)
 	// replace logger writer with suspendable ui writer
 	logWriter(ui.WriterUI(os.Stdout))
 	// start ui
@@ -540,6 +552,6 @@ loop:
 		case <-ui.StoppedUI:
 			break loop
 		}
-		p.exit(0)
 	}
+	p.exit(0)
 }

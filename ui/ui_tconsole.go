@@ -1,15 +1,20 @@
 package ui
 
 import (
-	"golang.org/x/term"
+	"github.com/momiji/kpx/term"
 	"os"
-	"time"
 )
 
 var consoleClosed = NewManualResetEvent(true)
 var closeConsole = NewManualResetEvent(false)
+var consoleInited = false
+var consoleChan = make(chan byte)
 
 func consoleRun() {
+	if !consoleInited {
+		go readConsole(consoleChan)
+		consoleInited = true
+	}
 	consoleClosed.Reset()
 	defer consoleClosed.Signal()
 	closeConsole.Reset()
@@ -20,34 +25,49 @@ func consoleRun() {
 	}
 	defer term.Restore(int(os.Stdin.Fd()), oldState)
 	// console loop
-	b := make([]byte, 1)
-	ticker := time.NewTicker(100 * time.Millisecond)
 	loop := true
+	cc := closeConsole.Channel()
 	for loop {
 		select {
-		case <-closeConsole.c:
+		case <-cc:
 			closeConsole.Reset()
 			loop = false
-		case <-ticker.C:
-			n, err := os.Stdin.Read(b)
-			if err != nil {
-				continue
-			}
-			if n > 0 {
-				IfConsole(func() {
-					switch b[0] {
-					case 'q', 'Q', '\x03':
-						close(quitUI)
-						loop = false
-					case ' ', '\x1b', '\x09':
-						loop = false
-					}
-				})
-			}
+		case b := <-consoleChan:
+			IfConsole(func() {
+				switch b {
+				case 'q', 'Q', '\x03':
+					close(quitUI)
+					loop = false
+				case ' ', '\x1b', '\x09':
+					loop = false
+				case '\x0a', '\x0d':
+					PrintUI("")
+				}
+			})
 		}
 	}
 }
 
 func consoleClose() {
 	closeConsole.Signal()
+}
+
+func readConsole(c chan byte) {
+	b := make([]byte, 1)
+	for {
+		n, err := os.Stdin.Read(b)
+		if err != nil {
+			continue
+		}
+		if n > 0 {
+			IfAppConsole(func(console bool) {
+				if console {
+					c <- b[0]
+				} else {
+					appKeyNoLock(b[0])
+				}
+			})
+
+		}
+	}
 }

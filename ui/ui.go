@@ -11,22 +11,27 @@ var appIsRunningLock sync.Mutex
 var quitUI = make(chan any)
 var StoppedUI = make(chan any)
 
-func ifAppConsole(running bool, fn func()) {
+func IfAppConsole(fn func(console bool)) {
 	appIsRunningLock.Lock()
 	defer appIsRunningLock.Unlock()
-	if appIsRunning == running {
-		fn()
-	}
+	fn(!appIsRunning)
 }
 
 func IfApp(fn func()) {
-	ifAppConsole(true, fn)
+	IfAppConsole(func(console bool) {
+		if !console {
+			fn()
+		}
+	})
 }
 
 func IfConsole(fn func()) {
-	ifAppConsole(false, fn)
+	IfAppConsole(func(console bool) {
+		if console {
+			fn()
+		}
+	})
 }
-
 func SwitchUI(console bool) {
 	if console {
 		appClose()
@@ -57,21 +62,21 @@ loop:
 		console = !console
 	}
 	// first close App then Console, so we'll be in console mode at the end and normally resumePrintUI
-	PrintUI("before appClose")
 	appClose()
-	PrintUI("before consoleClose")
 	consoleClose()
-	PrintUI("before appClosed.Wait()")
 	// wait for app and console closed
 	appClosed.Wait()
-	PrintUI("before consoleClosed.Wait()")
 	consoleClosed.Wait()
 	// signal close
 	close(StoppedUI)
 }
 
 func StopUI() {
-	close(quitUI)
+	select {
+	case <-quitUI: //closed
+	default:
+		close(quitUI)
+	}
 }
 
 var suspendLock sync.RWMutex

@@ -531,7 +531,7 @@ func (p *Process) computeLog(channel *ProxyRequest, rule *ConfRule, proxy *ConfP
 	p.logName = name
 	p.logPrefix = fmt.Sprintf("(%d) [%s]", p.reqId, name)
 	p.logLine = fmt.Sprintf("%s %s %s HTTP/%s", p.logPrefix, channel.header.method, channel.header.originalUrl, channel.header.version)
-	p.logTraffic = fmt.Sprintf("%s %s HTTP/%s", channel.header.method, channel.header.originalUrl, channel.header.version)
+	p.logTraffic = fmt.Sprintf("%s %s %s HTTP/%s", name, channel.header.method, channel.header.originalUrl, channel.header.version)
 	if channel.header.hostEmpty {
 		p.logLine = fmt.Sprintf("%s (%s)", p.logLine, channel.header.host)
 	}

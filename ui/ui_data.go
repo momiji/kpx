@@ -13,6 +13,8 @@ type TrafficRow struct {
 	BytesSentPerSecond     *ratecounter.Rate
 	BytesReceivedPerSecond *ratecounter.Rate
 	Removed                time.Time
+	LastSend               time.Time
+	LastReceive            time.Time
 }
 
 type TrafficTable struct {
@@ -26,6 +28,9 @@ func NewTrafficRow(reqId int32, url string) *TrafficRow {
 		Url:                    url,
 		BytesSentPerSecond:     ratecounter.New(100*time.Millisecond, 5*time.Second),
 		BytesReceivedPerSecond: ratecounter.New(100*time.Millisecond, 5*time.Second),
+		Removed:                time.Time{},
+		LastSend:               time.Now(),
+		LastReceive:            time.Now(),
 	}
 }
 

@@ -1,8 +1,6 @@
 module github.com/momiji/kpx
 
-go 1.22
-
-toolchain go1.22.2
+go 1.23
 
 replace github.com/jcmturner/gokrb5/v8 v8.4.4 => github.com/momiji/gokrb5/v8 v8.4.4-x0
 
@@ -20,9 +18,10 @@ require (
 	github.com/palantir/stacktrace v0.0.0-20161112013806-78658fd2d177
 	github.com/rivo/tview v0.0.0-20241103174730-c76f7879f592
 	github.com/txthinking/socks5 v0.0.0-20230325130024-4230056ae301
+	go.uber.org/atomic v1.9.0
 	golang.org/x/crypto v0.27.0
 	golang.org/x/net v0.29.0
-	golang.org/x/term v0.24.0
+	golang.org/x/sys v0.25.0
 	golang.org/x/text v0.18.0
 	gopkg.in/yaml.v2 v2.4.0
 )
@@ -45,6 +44,5 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/txthinking/runnergroup v0.0.0-20230325130830-408dc5853f86 // indirect
-	go.uber.org/atomic v1.9.0 // indirect
-	golang.org/x/sys v0.25.0 // indirect
+	golang.org/x/term v0.24.0 // indirect
 )

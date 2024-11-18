@@ -240,6 +240,7 @@ func (c TrafficConn) Read(b []byte) (n int, err error) {
 	n, err = c.conn.Read(b)
 	if c.row != nil {
 		c.row.BytesReceivedPerSecond.IncrementBy(c.bytesRead + n)
+		c.row.LastReceive = time.Now()
 		c.bytesRead = 0
 	} else {
 		c.bytesRead += n
@@ -251,6 +252,7 @@ func (c TrafficConn) Write(b []byte) (n int, err error) {
 	n, err = c.conn.Write(b)
 	if c.row != nil {
 		c.row.BytesSentPerSecond.IncrementBy(c.bytesWrite + n)
+		c.row.LastSend = time.Now()
 		c.bytesWrite = 0
 	} else {
 		c.bytesWrite += n

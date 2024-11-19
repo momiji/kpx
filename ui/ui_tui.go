@@ -60,8 +60,10 @@ func setCell(i, j int, s string, w int, left bool, state int) {
 	}
 	if i > 0 && j == 1 {
 		a := strings.Split(s, " ")
-		a[1] = "[aqua]" + a[1] + "[-]"
-		if len(a) > 2 {
+		if len(a) > 1 {
+			a[1] = "[aqua]" + a[1] + "[-]"
+		}
+		if len(a) > 3 {
 			a[3] = "[yellow]" + a[3] + "[-]"
 		}
 		s = strings.Join(a, " ")

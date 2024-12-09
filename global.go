@@ -63,6 +63,7 @@ type Options struct {
 	Debug       bool
 	Trace       bool
 	Verbose     bool
+	ACL         []string
 
 	bindHost  string
 	bindPort  int

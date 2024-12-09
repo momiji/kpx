@@ -114,6 +114,10 @@ github.com/txthinking/socks5
 golang.org/x/crypto/md4
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/ssh/terminal
+# golang.org/x/exp v0.0.0-20241204233417-43b7b7cde48d
+## explicit; go 1.22.0
+golang.org/x/exp/constraints
+golang.org/x/exp/slices
 # golang.org/x/net v0.29.0
 ## explicit; go 1.18
 golang.org/x/net/http2/hpack

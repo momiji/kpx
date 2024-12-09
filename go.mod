@@ -1,8 +1,8 @@
 module github.com/momiji/kpx
 
-go 1.22
+go 1.22.0
 
-toolchain go1.22.2
+toolchain go1.23.4
 
 replace github.com/jcmturner/gokrb5/v8 v8.4.4 => github.com/momiji/gokrb5/v8 v8.4.4-x0
 
@@ -17,6 +17,7 @@ require (
 	github.com/palantir/stacktrace v0.0.0-20161112013806-78658fd2d177
 	github.com/txthinking/socks5 v0.0.0-20230325130024-4230056ae301
 	golang.org/x/crypto v0.27.0
+	golang.org/x/exp v0.0.0-20241204233417-43b7b7cde48d
 	golang.org/x/net v0.29.0
 	golang.org/x/text v0.18.0
 	gopkg.in/yaml.v2 v2.4.0

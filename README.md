@@ -204,7 +204,7 @@ Options:
                                  domain is automatically expanded to .EXAMPLE.COM when set from command line
                                  can also replace user in configuration file, when there is only one user defined
           --timeout TIMEOUT      automatically stop kpx after TIMEOUT seconds, when run without config file, defaults to 3600s = 1h (set to 0 to disable)
-	        --acl=<ips>            list of comma-separated IPs, who is allowed to connect
+          --acl=<ips>            list of comma-separated IPs, who is allowed to connect
       -e, --encrypt              encrypt a password, encryption key location is kpx.key
       -d, --debug                run in debug mode, displaying all headers
       -t, --trace                run in trace mode, displaying everything

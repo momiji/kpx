@@ -1,3 +1,47 @@
+- semver: 1.10.0
+  date: 2025-02-08T22:24:47.834650204+01:00
+  packager: ""
+  changes:
+    - commit: 970408540e8779442d3e2f31e205ac2392ccb8c1
+      note: 'fix: goreleaser schema'
+      author:
+        name: momiji
+        email: momiji@users.noreply.github.com
+      committer:
+        name: momiji
+        email: momiji@users.noreply.github.com
+    - commit: b59a5f5ca3f2e6ae851bba7e7fab7f40dca225a8
+      note: 'feat: add darwin_amd64 (Apple Silicon ARM)'
+      author:
+        name: momiji
+        email: momiji@users.noreply.github.com
+      committer:
+        name: momiji
+        email: momiji@users.noreply.github.com
+    - commit: 9c3a65630df143fd769ab6425bfd05c8c7cd317c
+      note: 'feat: add simple IP access control list'
+      author:
+        name: momiji
+        email: momiji@users.noreply.github.com
+      committer:
+        name: momiji
+        email: momiji@users.noreply.github.com
+    - commit: a5a5875931e76dcec5d1d3429ce15422912b606a
+      note: 'fix: do not use http proxy environment unless explicitly enabled in config'
+      author:
+        name: momiji
+        email: momiji@users.noreply.github.com
+      committer:
+        name: momiji
+        email: momiji@users.noreply.github.com
+    - commit: e47312c96a0bbced900f866b3813565ef011e9ea
+      note: Update README.md
+      author:
+        name: momiji
+        email: momiji@users.noreply.github.com
+      committer:
+        name: GitHub
+        email: noreply@users.noreply.github.com
 - semver: 1.9.1
   date: 2024-10-03T22:49:32.152476766+02:00
   packager: ""
@@ -6,26 +50,26 @@
       note: 'fix: add missing options in usage help'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: 59c7ed5d3e4c3636e29cb274601cd5b0bb656861
       note: 'fix: typos'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: f2d21c04b4fffa23ae94b532bad60a8fd7b3c7bd
       note: 'feat: add -k|--key option for encryption key location'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
 - semver: 1.9.0
   date: 2024-10-01T18:06:45.930097409+02:00
   packager: ""
@@ -34,49 +78,49 @@
       note: 'build: goreleaser arguments changed'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: 41e91adf3f9926e157c7479de7559574ac5920b2
       note: 'build: upgrade goreleaser configuration'
       author:
-        name: Christian Bourgeois
+        name: momiji
         email: momiji@users.noreply.github.com
       committer:
-        name: Christian Bourgeois
+        name: momiji
         email: momiji@users.noreply.github.com
     - commit: 54cb71ee07708bf43bbb0eb248f942686c7b06d0
       note: 'fix: no connection on no pac'
       author:
-        name: Christian Bourgeois
+        name: momiji
         email: momiji@users.noreply.github.com
       committer:
-        name: Christian Bourgeois
+        name: momiji
         email: momiji@users.noreply.github.com
     - commit: 56490ffa9d7e9f03b5bfbcab27c5394f54a3b194
       note: 'feat: lazy kerberos auth, allowing to start even without network'
       author:
-        name: xtian
+        name: momiji
         email: xxx
       committer:
-        name: xtian
+        name: momiji
         email: xxx
     - commit: cc46e8d2ded853bd49decd696698cf3fa56e88be
       note: 'fix: force config reload once every hour to refresh PAC'
       author:
-        name: xtian
+        name: momiji
         email: xxx
       committer:
-        name: xtian
+        name: momiji
         email: xxx
     - commit: bca5e0abadf3baa617430e5bfa76284392ee0f91
       note: 'feat: pac cache and fast reload'
       author:
-        name: Christian Bourgeois
+        name: momiji
         email: momiji@users.noreply.github.com
       committer:
-        name: Christian Bourgeois
+        name: momiji
         email: momiji@users.noreply.github.com
 - semver: 1.8.0
   date: 2024-09-16T13:50:51.312930155+02:00
@@ -86,74 +130,74 @@
       note: 'tests: improve PAC test'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: 390e64739194492120028d04a90cb453473dd5d7
       note: 'fix: upgrade dependencies'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: 17e1f4a626231e9a353fe86406dc19b9b9a853b5
       note: 'docs: typos'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: f390219f490130cb0093623521f45c39f3cf856b
       note: 'fix: socks server with basic auth'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: 766841a0d99be07cdb1ddbd7c3a74ab911865ec2
       note: 'fix: upgrade dependencies'
       author:
         name: a443939
-        email: christian.bourgeois@socgen.com
+        email: momiji@users.noreply.github.com
       committer:
         name: a443939
-        email: christian.bourgeois@socgen.com
+        email: momiji@users.noreply.github.com
     - commit: 8123409343b55834187a194fc0440f9799d5b945
       note: 'feat: add socks server with basic rules'
       author:
         name: a443939
-        email: christian.bourgeois@socgen.com
+        email: momiji@users.noreply.github.com
       committer:
         name: a443939
-        email: christian.bourgeois@socgen.com
+        email: momiji@users.noreply.github.com
     - commit: 8c1d7db88116c606c7b65cfdd9e240d73e70b621
       note: 'tests: native krb tests fixed'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: 02ce48ab431365aec1cf972ea8e9e242399e1187
       note: 'chore: typos'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: 783f4e80b9e398d98ec4379e0793e3914a72a02a
       note: 'fix: set tcp_no_delay on tcp connections'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
 - semver: 1.7.2
   date: 2024-03-22T01:23:14.150345011+01:00
   packager: ""
@@ -162,26 +206,26 @@
       note: 'tests: native kerberos on Linux'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: bd12701e1e5bffa00c532325b69fa0c728051344
       note: 'fix: native kerberos for Linux not working'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: d6dea06f166d1d04a407514c4c52cf551067d4e8
       note: 'fix: crash if no credentials: in yaml config'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
 - semver: 1.7.1
   date: 2024-02-20T18:55:23.140626387+01:00
   packager: ""
@@ -189,35 +233,35 @@
     - commit: e001a8c1e6cfcaea4642bb56e45f41456324fece
       note: Merge remote-tracking branch 'origin/main'
       author:
-        name: Christian BOURGEOIS
-        email: christian.bourgeois@socgen.com
+        name: momiji
+        email: momiji@users.noreply.github.com
       committer:
-        name: Christian BOURGEOIS
-        email: christian.bourgeois@socgen.com
+        name: momiji
+        email: momiji@users.noreply.github.com
     - commit: a307dcbd9a9e2bc2ee38d2bbca077268f0d90236
       note: 'fix: add missing NoKerberos for non supported OS'
       author:
-        name: Christian BOURGEOIS
-        email: christian.bourgeois@socgen.com
+        name: momiji
+        email: momiji@users.noreply.github.com
       committer:
-        name: Christian BOURGEOIS
-        email: christian.bourgeois@socgen.com
+        name: momiji
+        email: momiji@users.noreply.github.com
     - commit: 1813cf8ecc50408201ba504ded0c0b8aa7c4c03c
       note: 'docs: upgrade build/ sample'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: e26f5d4c91b36d6e34041785115c4e44dd1e1643
       note: 'docs: upgrade build/ sample'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
 - semver: 1.7.0
   date: 2024-02-20T15:50:51.457026363+01:00
   packager: ""
@@ -226,34 +270,34 @@
       note: 'fix: upgrade dependencies'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: fb9613b7c931a05bbf6e59492b520624ab661e90
       note: 'feat: add native kerberos for windows/linux'
       author:
-        name: Christian BOURGEOIS
-        email: christian.bourgeois@socgen.com
+        name: momiji
+        email: momiji@users.noreply.github.com
       committer:
-        name: Christian BOURGEOIS
-        email: christian.bourgeois@socgen.com
+        name: momiji
+        email: momiji@users.noreply.github.com
     - commit: d4b51680ae3fc1210f91881d857c70e5996632b1
       note: 'fix: flush async logs before asing for login/password'
       author:
-        name: Christian BOURGEOIS
-        email: christian.bourgeois@socgen.com
+        name: momiji
+        email: momiji@users.noreply.github.com
       committer:
-        name: Christian BOURGEOIS
-        email: christian.bourgeois@socgen.com
+        name: momiji
+        email: momiji@users.noreply.github.com
     - commit: ec0a45b23ba6ea819ee150e01e561215482d3d5b
       note: 'fix: errors messages'
       author:
-        name: Christian BOURGEOIS
-        email: christian.bourgeois@socgen.com
+        name: momiji
+        email: momiji@users.noreply.github.com
       committer:
-        name: Christian BOURGEOIS
-        email: christian.bourgeois@socgen.com
+        name: momiji
+        email: momiji@users.noreply.github.com
 - semver: 1.6.1
   date: 2024-01-30T13:15:42.010525531+01:00
   packager: ""
@@ -262,10 +306,10 @@
       note: 'build: upgrade dependencies'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
 - semver: 1.6.0
   date: 2024-01-30T11:59:10.591941705+01:00
   packager: ""
@@ -274,34 +318,34 @@
       note: 'feat: experimental connection-pools and hosts-cache'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: a4c91008529ee44a13c1fedcbfe02311de475233
       note: 'docs: typos'
       author:
-        name: xtian
-        email: christian.bourgeois@socgen.com
+        name: momiji
+        email: momiji@users.noreply.github.com
       committer:
-        name: xtian
-        email: christian.bourgeois@socgen.com
+        name: momiji
+        email: momiji@users.noreply.github.com
     - commit: 3eb9101f47e90e197a352d68920ae88120f5d33b
       note: 'docs: typos'
       author:
-        name: xtian
-        email: christian.bourgeois@socgen.com
+        name: momiji
+        email: momiji@users.noreply.github.com
       committer:
-        name: xtian
-        email: christian.bourgeois@socgen.com
+        name: momiji
+        email: momiji@users.noreply.github.com
     - commit: 1f3c8f94810297b847c3fe4d0895cd687f935f06
       note: 'docs: additional notes about PAC and authentication'
       author:
-        name: xtian
-        email: christian.bourgeois@socgen.com
+        name: momiji
+        email: momiji@users.noreply.github.com
       committer:
-        name: xtian
-        email: christian.bourgeois@socgen.com
+        name: momiji
+        email: momiji@users.noreply.github.com
 - semver: 1.5.5
   date: 2023-11-22T10:24:58.749103523+01:00
   packager: ""
@@ -310,10 +354,10 @@
       note: 'fix: invalid build script'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
 - semver: 1.5.4
   date: 2023-11-22T10:08:40.63828598+01:00
   packager: ""
@@ -322,10 +366,10 @@
       note: 'fix: allow multiple pac encoding'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
 - semver: 1.5.3
   date: 2023-08-30T12:16:42.886590832+02:00
   packager: ""
@@ -334,18 +378,18 @@
       note: 'fix: add missing log flush'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: 997ae4674da3addc7b38ca15049e760637613855
       note: 'build: fix configuration'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
 - semver: 1.5.2
   date: 2023-08-30T11:31:03.244547926+02:00
   packager: ""
@@ -354,26 +398,26 @@
       note: 'docs: update README.md'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: 0bf6d7c173ee278d3430c4f5505a05d49759576a
       note: 'fix: disable auto-update for versions ''dev*'' instead of ''dev'''
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: 095b264fe3652bcc5e921f0226ebf9adaac1c4d4
       note: 'build: update Makefile'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
 - semver: 1.5.1
   date: 2023-08-29T17:42:34.347042152+02:00
   packager: ""
@@ -382,58 +426,58 @@
       note: 'tests: add scripts'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: b10a767ed2fd97289e7e93da5882e1bf85927ba3
       note: 'tests: add missing 100 years certs'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: 18a5bc7e04f56df56d9bca929607efb64a690257
       note: 'fix: vacuum for connection pool and closed connection detection'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: 0f521dd9ad2ff8c64d427df7919a3c0b7b81fb3e
       note: 'fix: directToConnect connections (https rewrite) cannot be reused'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: 4290e15e45dc1b3efdbf0178a48aea41c8e32839
       note: 'tests: add https tests'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: ee4ee5c50bfd711fe071e62660ce3c46da6048a6
       note: 'chore: update goreleaser configuration'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: d1769aafbad22998b6146a833970d8bc8db029ae
       note: 'chore: update goreleaser configuration'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
 - semver: 1.5.0
   date: 2023-08-25T17:38:16.492812758+02:00
   packager: ""
@@ -442,23 +486,23 @@
       note: 'build: update .gitignore'
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: f943114ccec51bf77e875da9c47ce0668059ca27
       note: initial commit in github
       author:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
       committer:
         name: momiji
-        email: momiji@github.com
+        email: momiji@users.noreply.github.com
     - commit: 56cf03bb64a49b131463ee438455c9deaa9e5b7b
       note: Initial commit
       author:
-        name: Christian Bourgeois
+        name: momiji
         email: momiji@users.noreply.github.com
       committer:
-        name: GitHub
-        email: noreply@github.com
+        name: momiji
+        email: noreply@users.noreply.github.com

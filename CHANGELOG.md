@@ -1,4 +1,13 @@
 
+## [1.10.0](https://github.com/momiji/kpx/compare/v1.9.1...v1.10.0) (2025-02-08)
+
+* fix: goreleaser schema [97040854](https://github.com/momiji/kpx/commit/970408540e8779442d3e2f31e205ac2392ccb8c1)
+* feat: add darwin_amd64 (Apple Silicon ARM) [b59a5f5c](https://github.com/momiji/kpx/commit/b59a5f5ca3f2e6ae851bba7e7fab7f40dca225a8)
+* feat: add simple IP access control list [9c3a6563](https://github.com/momiji/kpx/commit/9c3a65630df143fd769ab6425bfd05c8c7cd317c)
+* fix: do not use http proxy environment unless explicitly enabled in config [a5a58759](https://github.com/momiji/kpx/commit/a5a5875931e76dcec5d1d3429ce15422912b606a)
+* Update README.md [e47312c9](https://github.com/momiji/kpx/commit/e47312c96a0bbced900f866b3813565ef011e9ea)
+
+
 ## [1.9.1](https://github.com/momiji/kpx/compare/v1.9.0...v1.9.1) (2024-10-03)
 
 * fix: add missing options in usage help [67ed73ea](https://github.com/momiji/kpx/commit/67ed73ea20529472cc4a1b02dad312ed70e5c176)

@@ -19,5 +19,7 @@ git push
 git push --tags
 
 # release new version
-export GITHUB_TOKEN=$( gh auth token )
+GITHUB_TOKEN=$( gh auth token )
+export GITHUB_TOKEN
+
 goreleaser release --clean

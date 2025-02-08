@@ -15,6 +15,7 @@ builds:
 #      - go_first_class
       - linux_amd64
       - windows_amd64
+      - darwin_amd64
     ldflags:
       - -s -w -X github.com/momiji/kpx.AppVersion={{.Version}}
     # binary: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}'

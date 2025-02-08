@@ -3,17 +3,20 @@ package kpx
 import (
 	"container/list"
 	"fmt"
-	"github.com/txthinking/socks5"
 	"math"
 	"net"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/txthinking/socks5"
+
 	"github.com/fsnotify/fsnotify"
 	"github.com/palantir/stacktrace"
+	"golang.org/x/exp/slices"
 )
 
 type Proxy struct {
@@ -275,6 +278,12 @@ func (p *Proxy) run() error {
 				conn, err := ln.Accept()
 				if err != nil {
 					continue
+				}
+				if config.conf.ACL != nil {
+					if !slices.Contains(config.conf.ACL, strings.Split(conn.RemoteAddr().String(), ":")[0]) {
+						conn.Close()
+						continue
+					}
 				}
 				ConfigureConn(conn)
 				if p.stopped() {

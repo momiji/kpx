@@ -124,6 +124,8 @@ func (c *Config) readFromConfig() error {
 		Proxy: &proxyName,
 	}
 
+	c.conf.ACL = options.ACL
+
 	return nil
 }
 
@@ -997,9 +999,10 @@ type Conf struct {
 	Update                      bool
 	Restart                     bool
 	UseEnvProxy                 bool
-	Experimental                string // space/comma separated list of features
-	experimentalConnectionPools bool   // add a connection pool for http
-	experimentalHostsCache      bool   // add a hosts cache for proxy lookup - fine grained url lookup is then disabled
+	Experimental                string   // space/comma separated list of features
+	experimentalConnectionPools bool     // add a connection pool for http
+	experimentalHostsCache      bool     // add a hosts cache for proxy lookup - fine grained url lookup is then disabled
+	ACL                         []string `yaml:"acl"` //comma-separated list of allowed IPs. If empty everybody is allowed
 }
 
 type ConfCred struct {

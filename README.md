@@ -193,6 +193,10 @@ Usage: kpx [-dtv] [-u <user@domain>] [-l <[ip:]port>] [-c <config>] [-k <key>]
        kpx [-dtv] [-u <user@domain>] [-l <[ip:]port>] [--timeout <timeout>] [--acl <ips>] <proxy:port>
        kpx -e [-k <key>]
 
+Use the first form to start the proxy with a configuration file, and the second form to start the proxy with a single proxy.
+In second form, the upstream proxy is of type 'kerberos' if a user is provided, and 'anonymous' otherwise, unless port number is 0 and in that case it is 'direct'.
+The third form is used to encrypt a password, using the encryption key provided by '-k' option.
+
 Example:
        kpx -u user_login@eur -l 8888 proxy:8080
 
@@ -201,7 +205,7 @@ Options:
       -k, --key=<key>            encryption key location (defaults to 'kpx.key')
       -l, --listen=<[ip:]port>   listen to this ip port (ip defaults to 127.0.0.1, port defaults to 8080)
       -u, --user=<user@domain>   user for authentication, like login@domain or domain\login
-                                 ! domain is case-sensitive in Kerberos, however it is uppercased as all internet usage seems to be uppercase
+                                 /!\ domain is case-sensitive in Kerberos, however it is uppercased as all internet usage seems to be uppercase
                                  domain is automatically expanded to .EXAMPLE.COM when set from command line
                                  can also replace user in configuration file, when there is only one user defined
           --timeout=<timeout>    automatically stop kpx after specified seconds, when run without config file, defaults to 3600s = 1h (set to 0 to disable)
@@ -213,9 +217,9 @@ Options:
       -h, --help                 show full help with config file format
       -V, --version              show version
 
-Note1: remote HTTPS proxies has not been tested, as none was available for testing.
-Note2: failover proxies can be configured for a single rule "proxy: proxy1,proxy2,...", but only works for non-pac proxies, and assumes all proxies are "almost" of the same type.
-Note3: failover hosts can be configured for a single proxy "host: host1,host2,...", but only works for non-pac proxies.
+Note 1: remote HTTPS proxies has not been tested, as none was available for testing.
+Note 2: failover proxies can be configured for a single rule "proxy: proxy1,proxy2,...", but only works for non-pac proxies, and assumes all proxies are "almost" of the same type.
+Note 3: failover hosts can be configured for a single proxy "host: host1,host2,...", but only works for non-pac proxies.
 
 
 CONFIG FILE

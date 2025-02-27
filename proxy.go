@@ -281,7 +281,7 @@ func (p *Proxy) run() error {
 				}
 				remoteIp := strings.Split(conn.RemoteAddr().String(), ":")[0]
 				if !p.isAllowed(remoteIp, p.getConfig().conf.ACL) {
-					logInfo("[-] Connection from %s is not allowed", remoteIp)
+					logInfo("[-] Connection from %s is not allowed by ACL", remoteIp)
 					_ = conn.Close() // force closing client, ignore any error
 					continue
 				}

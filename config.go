@@ -99,22 +99,37 @@ func (c *Config) readFromConfig() error {
 	c.conf.Port = options.bindPort
 
 	c.conf.Proxies = map[string]*ConfProxy{}
-	proxyName := "krb"
-	proxyType := ProxyKerberos
-	proxySpn := "HTTP"
-	proxyCred := "user"
-	c.conf.Proxies[proxyName] = &ConfProxy{
-		Type:       &proxyType,
-		Spn:        &proxySpn,
-		Realm:      &options.domain,
-		Host:       &options.proxyHost,
-		Port:       options.proxyPort,
-		Credential: &proxyCred,
-	}
-
 	c.conf.Credentials = map[string]*ConfCred{}
-	c.conf.Credentials[proxyCred] = &ConfCred{
-		Login: &options.login,
+	proxyName := "proxy"
+
+	if options.proxyPort == 0 {
+		// consider proxy is a direct proxy
+		proxyName = "direct"
+	} else if options.login == "" {
+		// consider proxy is a simple anonymous proxy
+		proxyType := ProxyAnonymous
+		c.conf.Proxies[proxyName] = &ConfProxy{
+			Type: &proxyType,
+			Host: &options.proxyHost,
+			Port: options.proxyPort,
+		}
+	} else {
+		// consider proxy is a kerberos proxy
+		proxyType := ProxyKerberos
+		proxySpn := "HTTP"
+		proxyCred := "user"
+		c.conf.Proxies[proxyName] = &ConfProxy{
+			Type:       &proxyType,
+			Spn:        &proxySpn,
+			Realm:      &options.domain,
+			Host:       &options.proxyHost,
+			Port:       options.proxyPort,
+			Credential: &proxyCred,
+		}
+		// add kerberos credential
+		c.conf.Credentials[proxyCred] = &ConfCred{
+			Login: &options.login,
+		}
 	}
 
 	c.conf.Rules = make([]*ConfRule, 1)

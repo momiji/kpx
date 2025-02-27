@@ -31,6 +31,10 @@ Usage: {{.AppName}} [-dtv] [-u <user@domain>] [-l <[ip:]port>] [-c <config>] [-k
        {{.AppName}} [-dtv] [-u <user@domain>] [-l <[ip:]port>] [--timeout <timeout>] [--acl <ips>] <proxy:port>
        {{.AppName}} -e [-k <key>]
 
+Use the first form to start the proxy with a configuration file, and the second form to start the proxy with a single proxy.
+In second form, the upstream proxy is of type 'kerberos' if a user is provided, and 'anonymous' otherwise, unless port number is 0 and in that case it is 'direct'.
+The third form is used to encrypt a password, using the encryption key provided by '-k' option.
+
 Example:
        {{.AppName}} -u user_login@eur -l 8888 proxy:8080
 
@@ -39,7 +43,7 @@ Options:
       -k, --key=<key>            encryption key location (defaults to '{{.AppName}}.key')
       -l, --listen=<[ip:]port>   listen to this ip port (ip defaults to 127.0.0.1, port defaults to 8080)
       -u, --user=<user@domain>   user for authentication, like login@domain or domain\login
-                                 ! domain is case-sensitive in Kerberos, however it is uppercased as all internet usage seems to be uppercase
+                                 /!\ domain is case-sensitive in Kerberos, however it is uppercased as all internet usage seems to be uppercase
                                  domain is automatically expanded to {{.AppDefaultDomain}} when set from command line
                                  can also replace user in configuration file, when there is only one user defined
           --acl=<ips>            list of comma-separated IPs or CIDRs, who is allowed to connect
@@ -51,9 +55,9 @@ Options:
       -h, --help                 show full help with config file format
       -V, --version              show version
 
-Note1: remote HTTPS proxies has not been tested, as none was available for testing.
-Note2: failover proxies can be configured for a single rule "proxy: proxy1,proxy2,...", but only works for non-pac proxies, and assumes all proxies are "almost" of the same type.
-Note3: failover hosts can be configured for a single proxy "host: host1,host2,...", but only works for non-pac proxies.
+Note 1: remote HTTPS proxies has not been tested, as none was available for testing.
+Note 2: failover proxies can be configured for a single rule "proxy: proxy1,proxy2,...", but only works for non-pac proxies, and assumes all proxies are "almost" of the same type.
+Note 3: failover hosts can be configured for a single proxy "host: host1,host2,...", but only works for non-pac proxies.
 `
 
 var HelpValue = ""
@@ -322,19 +326,14 @@ func cmd() {
 		options.Proxy = h + ":" + p
 		options.proxyHost = h
 		options.proxyPort, _ = strconv.Atoi(p)
-		if options.User == "" {
-			logPrintf("[-] Credential [user] - Enter login with full domain name: ")
-			_, err := fmt.Scanln(&options.User)
-			if err != nil || options.User == "" {
-				logFatal("[-] Error: invalid empty value for flag -u")
+		if options.User != "" {
+			options.login, options.domain = splitUsername(options.User, "")
+			if options.domain == "" {
+				logFatal("[-] Error: invalid value %q for flag -u: missing domain", options.User)
 			}
-		}
-		options.login, options.domain = splitUsername(options.User, "")
-		if options.domain == "" {
-			logFatal("[-] Error: invalid value %q for flag -u: missing domain", options.User)
-		}
-		if !strings.Contains(options.domain, ".") {
-			options.domain = options.domain + AppDefaultDomain
+			if !strings.Contains(options.domain, ".") {
+				options.domain = options.domain + AppDefaultDomain
+			}
 		}
 	}
 

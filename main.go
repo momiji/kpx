@@ -28,7 +28,7 @@ It exposes an anonymous proxy, automatically injecting required credentials when
 It also provides a javascript proxy.pac to be used in browser or system proxy, at 'http://HOST:PORT/proxy.pac'.
 
 Usage: {{.AppName}} [-dtv] [-u <user@domain>] [-l <[ip:]port>] [-c <config>] [-k <key>]
-       {{.AppName}} [-dtv] [-u <user@domain>] [-l <[ip:]port>] [--timeout TIMEOUT] <proxy:port>
+       {{.AppName}} [-dtv] [-u <user@domain>] [-l <[ip:]port>] [--timeout <timeout>] [--acl <ips>] <proxy:port>
        {{.AppName}} -e [-k <key>]
 
 Example:
@@ -42,8 +42,8 @@ Options:
                                  ! domain is case-sensitive in Kerberos, however it is uppercased as all internet usage seems to be uppercase
                                  domain is automatically expanded to {{.AppDefaultDomain}} when set from command line
                                  can also replace user in configuration file, when there is only one user defined
-	      --acl=<ips>            list of comma-separated IPs, who is allowed to connect
-          --timeout TIMEOUT      automatically stop {{.AppName}} after TIMEOUT seconds, when run without config file, defaults to 3600s = 1h (set to 0 to disable)
+          --acl=<ips>            list of comma-separated IPs or CIDRs, who is allowed to connect
+          --timeout=<timeout>    automatically stop {{.AppName}} after specified seconds, when run without config file, defaults to 3600s = 1h (set to 0 to disable)
       -e, --encrypt              encrypt a password, encryption key location is {{.AppName}}.key  
       -d, --debug                run in debug mode, displaying all headers
       -t, --trace                run in trace mode, displaying everything
@@ -274,9 +274,7 @@ func cmd() {
 	flag.BoolVar(&options.ShowHelp, "help", false, "")
 	flag.BoolVar(&options.ShowVersion, "V", false, "")
 	flag.BoolVar(&options.ShowVersion, "version", false, "")
-	var acl string
-	flag.StringVar(&acl, "acl", "", "")
-	options.ACL = strings.Split(acl, ",")
+	flag.StringVar(&options.ACL, "acl", "", "")
 	flag.Parse()
 	args := flag.Args()
 

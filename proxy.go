@@ -16,7 +16,6 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/palantir/stacktrace"
-	"golang.org/x/exp/slices"
 )
 
 type Proxy struct {
@@ -243,6 +242,7 @@ func (p *Proxy) reload() {
 }
 
 func (p *Proxy) run() error {
+	// get config that won't be hot reloaded as ports cannot be changed afterwards
 	config := p.getConfig()
 
 	// start automatic exit
@@ -279,11 +279,11 @@ func (p *Proxy) run() error {
 				if err != nil {
 					continue
 				}
-				if config.conf.ACL != nil {
-					if !slices.Contains(config.conf.ACL, strings.Split(conn.RemoteAddr().String(), ":")[0]) {
-						conn.Close()
-						continue
-					}
+				remoteIp := strings.Split(conn.RemoteAddr().String(), ":")[0]
+				if !p.isAllowed(remoteIp, p.getConfig().conf.ACL) {
+					logInfo("[-] Connection from %s is not allowed", remoteIp)
+					_ = conn.Close() // force closing client, ignore any error
+					continue
 				}
 				ConfigureConn(conn)
 				if p.stopped() {
@@ -492,4 +492,19 @@ func (p *Proxy) vacuumPool() {
 	if trace {
 		logInfo("%d connections removed from pool, %d remaining", count, total-count)
 	}
+}
+
+// check if ip is in the list of allowed ips or cidrs
+func (p *Proxy) isAllowed(ip string, acl []string) bool {
+	for _, a := range acl {
+		if strings.Contains(a, "/") {
+			_, cidr, _ := net.ParseCIDR(a)
+			if cidr != nil && cidr.Contains(net.ParseIP(ip)) {
+				return true
+			}
+		} else if a == ip {
+			return true
+		}
+	}
+	return acl == nil || len(acl) == 0
 }

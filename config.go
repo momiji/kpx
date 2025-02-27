@@ -124,7 +124,7 @@ func (c *Config) readFromConfig() error {
 		Proxy: &proxyName,
 	}
 
-	c.conf.ACL = options.ACL
+	c.conf.ACL = strings.Split(options.ACL, ",")
 
 	return nil
 }
@@ -1002,7 +1002,7 @@ type Conf struct {
 	Experimental                string   // space/comma separated list of features
 	experimentalConnectionPools bool     // add a connection pool for http
 	experimentalHostsCache      bool     // add a hosts cache for proxy lookup - fine grained url lookup is then disabled
-	ACL                         []string `yaml:"acl"` //comma-separated list of allowed IPs. If empty everybody is allowed
+	ACL                         []string `yaml:"acl"` // comma-separated list of allowed IPs or CIDRs. If empty everybody is allowed
 }
 
 type ConfCred struct {

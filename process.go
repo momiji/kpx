@@ -716,7 +716,8 @@ func (p *Process) forwardStream(source *ProxyRequest, target *ProxyRequest) erro
 }
 
 func (p *Process) pipe(source *ProxyRequest, target *ProxyRequest, wait *sync.WaitGroup) {
-	_, _ = io.Copy(target.conn, source.conn)
+	// io.Copy will use splice/sendfile (zerocopy) only if src/dst are of type *net.TCPConn
+	_, _ = io.Copy(target.conn.conn, source.conn.conn)
 	// fast close connection after short inactivity, unless receiving new data
 	//source.conn.setTimeout(-p.config.conf.CloseTimeout)
 	//target.conn.setTimeout(-p.config.conf.CloseTimeout)

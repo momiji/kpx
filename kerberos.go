@@ -119,7 +119,11 @@ func (k *Kerberos) NewWithPassword(username, realm, password string) *client.Cli
 	username, realm = splitUsername(username, realm)
 	if k.config.conf.Domains[realm] != nil {
 		realm = *k.config.conf.Domains[realm]
+	} else if !strings.Contains(realm, ".") {
+		// if no dot, append default domain
+		realm = realm + AppDefaultDomain
 	}
+
 	// set default domain, which is required to be good for krb5 library to work (bug?)
 	krbCfg.LibDefaults.DefaultRealm = realm
 	// inject realm with default kdc equals to realm name

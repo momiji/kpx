@@ -1,4 +1,14 @@
 
+## [1.11.0](https://github.com/momiji/kpx/compare/v1.10.0...v1.11.0) (2025-07-09)
+
+* feat: add experimental optional console ui (#5) [8dd991b9](https://github.com/momiji/kpx/commit/8dd991b9cb3122ca921225b36beb1974ce7d7f21)
+* fix: append default domain if realm has no dot [f5dda1bf](https://github.com/momiji/kpx/commit/f5dda1bf582231d9c77b316e8a5630536ae6f390)
+* feat: add dynamic host="*" proxy for pac authentication [50168fdd](https://github.com/momiji/kpx/commit/50168fdd497913af4a19d211a7fa8703b7467ef0)
+* feat: use zero-copy where available [707f998e](https://github.com/momiji/kpx/commit/707f998e1841084fa5136a6746c845b689126f65)
+* feat: allow anonymous and direct proxy when no config file is used [2f36e845](https://github.com/momiji/kpx/commit/2f36e8459c24c456a94a8f9c39af18cc90007b65)
+* feat: add CIDRs to ACLs [a9404c0b](https://github.com/momiji/kpx/commit/a9404c0b8216a0527bdaf5a323b78cbcf8484429)
+
+
 ## [1.10.0](https://github.com/momiji/kpx/compare/v1.9.1...v1.10.0) (2025-02-08)
 
 * fix: goreleaser schema [97040854](https://github.com/momiji/kpx/commit/970408540e8779442d3e2f31e205ac2392ccb8c1)

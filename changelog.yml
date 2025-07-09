@@ -1,3 +1,71 @@
+- semver: 1.11.0
+  date: 2025-07-09T17:27:29.394988579+02:00
+  packager: Christian Bourgeois <momiji@users.noreply.github.com>
+  changes:
+    - commit: 8dd991b9cb3122ca921225b36beb1974ce7d7f21
+      note: 'feat: add experimental optional console ui (#5)'
+      author:
+        name: Christian Bourgeois
+        email: momiji@users.noreply.github.com
+      committer:
+        name: GitHub
+        email: noreply@github.com
+    - commit: 89c91383b7a8bb8acd483db00a8d2179d7122b66
+      note: 'chore: go mod vendor'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: f5dda1bf582231d9c77b316e8a5630536ae6f390
+      note: 'fix: append default domain if realm has no dot'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 50168fdd497913af4a19d211a7fa8703b7467ef0
+      note: 'feat: add dynamic host="*" proxy for pac authentication'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 707f998e1841084fa5136a6746c845b689126f65
+      note: 'feat: use zero-copy where available'
+      author:
+        name: momiji
+        email: momiji@users.noreply.github.com
+      committer:
+        name: momiji
+        email: momiji@users.noreply.github.com
+    - commit: 2f36e8459c24c456a94a8f9c39af18cc90007b65
+      note: 'feat: allow anonymous and direct proxy when no config file is used'
+      author:
+        name: momiji
+        email: momiji@users.noreply.github.com
+      committer:
+        name: momiji
+        email: momiji@users.noreply.github.com
+    - commit: a9404c0b8216a0527bdaf5a323b78cbcf8484429
+      note: 'feat: add CIDRs to ACLs'
+      author:
+        name: momiji
+        email: momiji@users.noreply.github.com
+      committer:
+        name: momiji
+        email: momiji@users.noreply.github.com
+    - commit: 2406803b740d543b6972f03471bddb52635b9003
+      note: 'chore: shell-check corrections'
+      author:
+        name: momiji
+        email: momiji@users.noreply.github.com
+      committer:
+        name: momiji
+        email: momiji@users.noreply.github.com
 - semver: 1.10.0
   date: 2025-02-08T22:24:47.834650204+01:00
   packager: ""

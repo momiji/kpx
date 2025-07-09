@@ -2,6 +2,7 @@ package kpx
 
 import (
 	"crypto/tls"
+	"github.com/momiji/kpx/ui"
 	"math"
 	"net"
 	"time"
@@ -222,4 +223,63 @@ func (cc *CloseAwareConn) SetReadDeadline(t time.Time) error {
 
 func (cc *CloseAwareConn) SetWriteDeadline(t time.Time) error {
 	return cc.conn.SetWriteDeadline(t)
+}
+
+type TrafficConn struct {
+	conn       net.Conn
+	bytesRead  int
+	bytesWrite int
+	row        *ui.TrafficRow
+}
+
+func NewTrafficConn(conn net.Conn) *TrafficConn {
+	return &TrafficConn{conn: conn}
+}
+
+func (c TrafficConn) Read(b []byte) (n int, err error) {
+	n, err = c.conn.Read(b)
+	if c.row != nil {
+		c.row.BytesReceivedPerSecond.IncrementBy(c.bytesRead + n)
+		c.row.LastReceive = time.Now()
+		c.bytesRead = 0
+	} else {
+		c.bytesRead += n
+	}
+	return
+}
+
+func (c TrafficConn) Write(b []byte) (n int, err error) {
+	n, err = c.conn.Write(b)
+	if c.row != nil {
+		c.row.BytesSentPerSecond.IncrementBy(c.bytesWrite + n)
+		c.row.LastSend = time.Now()
+		c.bytesWrite = 0
+	} else {
+		c.bytesWrite += n
+	}
+	return
+}
+
+func (c TrafficConn) Close() error {
+	return c.conn.Close()
+}
+
+func (c TrafficConn) LocalAddr() net.Addr {
+	return c.conn.LocalAddr()
+}
+
+func (c TrafficConn) RemoteAddr() net.Addr {
+	return c.conn.RemoteAddr()
+}
+
+func (c TrafficConn) SetDeadline(t time.Time) error {
+	return c.conn.SetDeadline(t)
+}
+
+func (c TrafficConn) SetReadDeadline(t time.Time) error {
+	return c.conn.SetReadDeadline(t)
+}
+
+func (c TrafficConn) SetWriteDeadline(t time.Time) error {
+	return c.conn.SetWriteDeadline(t)
 }

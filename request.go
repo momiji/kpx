@@ -24,8 +24,9 @@ type ProxyRequest struct {
 }
 
 type RequestHeader struct {
-	headers []string
-	data    []byte
+	headers   []string
+	data      []byte
+	startData int
 	// request line
 	method          string
 	relativeUrl     string      // relative url without proto://host(:port), starts with /
@@ -171,6 +172,7 @@ func (r *ProxyRequest) readHeaders() (*RequestHeader, error) {
 	}
 	h.headers = headers
 	h.data = buffer[startData:readLen]
+	h.startData = startData
 	r.header = &h
 	return &h, nil
 }

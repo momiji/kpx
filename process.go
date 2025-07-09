@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/momiji/kpx/ui"
 	"github.com/txthinking/socks5"
 	"io"
 	"net"
@@ -27,9 +28,12 @@ type Process struct {
 	logName     string
 	logPrefix   string
 	logLine     string
+	logTraffic  string
 	logHostPort string
 	loadCounter int32
 	ti          *traceInfo
+	traffic     *ui.TrafficRow
+	trafficConn *TrafficConn
 }
 
 func NewProcess(proxy *Proxy, conn net.Conn) *Process {
@@ -38,10 +42,12 @@ func NewProcess(proxy *Proxy, conn net.Conn) *Process {
 	if trace {
 		logTrace(ti, "create process")
 	}
+	trafficConn := NewTrafficConn(conn)
 	return &Process{
 		config:      proxy.getConfig(),
 		proxy:       proxy,
-		conn:        NewTimedConn(conn, newTraceInfo(reqId, "client")),
+		conn:        NewTimedConn(trafficConn, newTraceInfo(reqId, "client")),
+		trafficConn: trafficConn,
 		reqId:       reqId,
 		loadCounter: proxy.loadCounter.Load(),
 		ti:          ti,
@@ -123,6 +129,11 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 			logHeader("%s %s", prefix, header)
 		}
 	}
+
+	// traffic data
+	p.traffic = ui.NewTrafficRow(p.reqId, p.logTraffic)
+	ui.TrafficData.Add(p.traffic)
+	p.trafficConn.row = p.traffic
 
 	// if no proxy, just throw away the request
 	if rule == nil || firstProxy == nil || *firstProxy.Type == ProxyNone {
@@ -520,6 +531,7 @@ func (p *Process) computeLog(channel *ProxyRequest, rule *ConfRule, proxy *ConfP
 	p.logName = name
 	p.logPrefix = fmt.Sprintf("(%d) [%s]", p.reqId, name)
 	p.logLine = fmt.Sprintf("%s %s %s HTTP/%s", p.logPrefix, channel.header.method, channel.header.originalUrl, channel.header.version)
+	p.logTraffic = fmt.Sprintf("%s %s %s HTTP/%s", name, channel.header.method, channel.header.originalUrl, channel.header.version)
 	if channel.header.hostEmpty {
 		p.logLine = fmt.Sprintf("%s (%s)", p.logLine, channel.header.host)
 	}
@@ -557,6 +569,9 @@ func (p *Process) closeChannels(clientChannel, proxyChannel *ProxyRequest) *Prox
 	}
 	p.closeChannel(clientChannel)
 	p.closeChannel(proxyChannel)
+	if p.traffic != nil {
+		ui.TrafficData.Remove(p.traffic)
+	}
 	return nil
 }
 

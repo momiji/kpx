@@ -3,13 +3,16 @@ package kpx
 import (
 	"container/list"
 	"fmt"
+	"github.com/momiji/kpx/ui"
 	"math"
 	"net"
 	"os"
+	"os/signal"
 	"path"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/txthinking/socks5"
@@ -32,6 +35,7 @@ type Proxy struct {
 	connPool                    map[string]*list.List  // must be synced - used in each process
 	poolMutex                   sync.Mutex             // atomic - used in each process
 	experimentalConnectionPools bool
+	consoleUI                   bool
 
 	// krbClients    map[string]*KerberosClient //
 	// configPtr     *unsafe.Pointer
@@ -249,8 +253,7 @@ func (p *Proxy) run() error {
 	if options.Timeout > 0 {
 		go func() {
 			<-time.After(time.Duration(options.Timeout) * time.Second)
-			logDestroy()
-			os.Exit(0)
+			p.exit(0)
 		}()
 		logInfo("[-] Proxy will exit automatically in %v seconds", options.Timeout)
 	}
@@ -309,20 +312,44 @@ func (p *Proxy) run() error {
 	}
 
 	// start socks5 server
+	errChan := make(chan error)
 	if config.conf.SocksPort != 0 {
 		socks, err := socks5.NewClassicServer(fmt.Sprintf("%s:%d", config.conf.Bind, config.conf.SocksPort), config.conf.Bind, "", "", 0, 60)
 		if err != nil {
 			return stacktrace.Propagate(err, "unable to create socks server on %s:%d", config.conf.Bind, config.conf.SocksPort)
 		}
 		logInfo("[-] Use %s as your socks5 proxy and configure it to use remote dns - curl syntax is 'curl -x socks5h://%s' or 'curl --socks5-hostname %s'", socks.Addr, socks.Addr, socks.Addr)
-		err = socks.ListenAndServe(p)
-		if err != nil {
-			return stacktrace.Propagate(err, "unable to listen on %s:%d", config.conf.Bind, config.conf.SocksPort)
-		}
+		go func() {
+			err = socks.ListenAndServe(p)
+			if err != nil {
+				errChan <- stacktrace.Propagate(err, "unable to listen on %s:%d", config.conf.Bind, config.conf.SocksPort)
+			}
+		}()
 	}
 
+	// start console ui and data cleanup
+	if p.consoleUI {
+		logInfo("[-] Starting console UI")
+		go func() {
+			time.Sleep(1 * time.Second)
+			ui.SwitchUI(false)
+		}()
+	}
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		for {
+			select {
+			case <-ticker.C:
+				ui.TrafficData.RemoveDead()
+			}
+		}
+	}()
+
 	// wait forever, only exit() can stop or a previous return with an error
-	select {}
+	select {
+	case err := <-errChan:
+		return err
+	}
 }
 
 func (p *Proxy) TCPHandle(server *socks5.Server, conn *net.TCPConn, request *socks5.Request) error {
@@ -356,8 +383,7 @@ func (p *Proxy) UDPHandle(server *socks5.Server, addr *net.UDPAddr, datagram *so
 
 func (p *Proxy) stop() {
 	p.forceStop = true
-	logDestroy()
-	os.Exit(1)
+	p.exit(1)
 }
 
 func (p *Proxy) stopped() bool {
@@ -507,4 +533,35 @@ func (p *Proxy) isAllowed(ip string, acl []string) bool {
 		}
 	}
 	return acl == nil || len(acl) == 0
+}
+
+func (p *Proxy) exit(code int) {
+	if p.consoleUI {
+		// force stop UI
+		ui.StopUI()
+		<-ui.StoppedUI
+	}
+	logDestroy()
+	os.Exit(code)
+}
+
+func (p *Proxy) ui() {
+	// exit signal handler to close ui correctly
+	exitSignal := make(chan os.Signal, 1)
+	signal.Notify(exitSignal, syscall.SIGINT, syscall.SIGTERM)
+	// replace logger writer with suspendable ui writer
+	logWriter(ui.WriterUI(os.Stdout))
+	// start ui
+	go ui.RunUI(true)
+	// wait for exit signal
+loop:
+	for {
+		select {
+		case <-exitSignal:
+			ui.StopUI()
+		case <-ui.StoppedUI:
+			break loop
+		}
+	}
+	p.exit(0)
 }

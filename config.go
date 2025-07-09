@@ -1055,6 +1055,7 @@ type Conf struct {
 	experimentalHostsCache      bool         // add a hosts cache for proxy lookup - fine grained url lookup is then disabled
 	ACL                         []string     `yaml:"acl"` // comma-separated list of allowed IPs or CIDRs. If empty everybody is allowed
 	pacProxies                  []*ConfProxy // list of proxy ordered by pacOrder, used for pac proxy
+	ConsoleUI                   bool         `yaml:"ui"` // enable console ui
 }
 
 type ConfCred struct {

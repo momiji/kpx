@@ -19,11 +19,17 @@ var stopUpdate = NewManualResetEvent(false)
 var updateStopped = NewManualResetEvent(false)
 
 const (
-	rowRemoved = iota
+	rowActive = iota
 	rowStalled
-	rowActive
+	rowRemoved
 	rowHeader
 )
+
+type stateRow struct {
+	row   *TrafficRow
+	state int
+	order int
+}
 
 func bytesFormat(rate *ratecounter.Rate) string {
 	return humanize.Comma(int64(rate.Total()))
@@ -73,12 +79,12 @@ func setCell(i, j int, s string, w int, left bool, state int) {
 	color := tcell.ColorWhite
 	bgcolor := tcell.ColorBlack
 	switch state {
-	case rowRemoved:
-		bgcolor = tcell.ColorDarkRed
-	case rowStalled:
-		bgcolor = tcell.ColorDarkSlateGray
 	case rowActive:
-		bgcolor = tcell.ColorBlack
+		color = tcell.ColorGreen
+	case rowStalled:
+		color = tcell.ColorOrange
+	case rowRemoved:
+		color = tcell.ColorGrey
 	case rowHeader:
 		color = tcell.ColorBlack
 		bgcolor = tcell.ColorAqua
@@ -129,11 +135,11 @@ func appInit() {
 				})
 				close(quitUI)
 				app.Stop()
-			case ' ':
-				IfApp(func() {
-					appIsRunning = false
-				})
-				app.Stop()
+				//case ' ':
+				//	IfApp(func() {
+				//		appIsRunning = false
+				//	})
+				//	app.Stop()
 			}
 		case tcell.KeyCtrlC:
 			IfApp(func() {
@@ -141,11 +147,11 @@ func appInit() {
 			})
 			close(quitUI)
 			app.Stop()
-		case tcell.KeyEsc, tcell.KeyTab:
-			IfApp(func() {
-				appIsRunning = false
-			})
-			app.Stop()
+		//case tcell.KeyEsc, tcell.KeyTab, tcell.KeyDown, tcell.KeyLeft, tcell.KeyUp, tcell.KeyRight:
+		//	IfApp(func() {
+		//		appIsRunning = false
+		//	})
+		//	app.Stop()
 		default:
 		}
 		return nil
@@ -200,37 +206,49 @@ func appUpdate() {
 					}
 					setRow(0, rowHeader, urlWidth, "ID", "URL", "RECV", "SENT", "RECV/S", "SENT/S")
 					trafficRows := TrafficData.RowsCopy()
-					countRows := 0
+					rowsToDisplay := len(trafficRows)
+					if rowsToDisplay+1 >= screenHeight {
+						rowsToDisplay = screenHeight - 1
+					}
+					stateRows := make([]*stateRow, rowsToDisplay)
+					i := 0
 					for _, row := range slices.Backward(trafficRows) {
-						if countRows+1 >= screenHeight {
+						if i >= rowsToDisplay {
 							break
 						}
 						state := rowActive
+						order := 0
 						if row.Removed.IsZero() {
 							updated := row.LastSend
 							if row.LastReceive.After(updated) {
 								updated = row.LastReceive
 							}
 							if time.Since(updated) > 1*time.Second {
-								state = rowRemoved
-							}
-							if time.Since(updated) > 2*time.Second {
-								continue
+								state = rowStalled
 							}
 						} else {
-							continue
-							/*
-								if time.Since(row.Removed) > 2*time.Second {
-									continue
-								}
-								state = rowRemoved
-							*/
+							state = rowRemoved
+							order = 1
 						}
-						countRows++
-						setRow(countRows, state, urlWidth, strconv.Itoa(int(row.ReqId)), row.Url, bytesFormat(row.BytesSentPerSecond), bytesFormat(row.BytesReceivedPerSecond), rateFormat(row.BytesSentPerSecond), rateFormat(row.BytesReceivedPerSecond))
+						stateRows[i] = &stateRow{row: row, state: state, order: order}
+						i++
+					}
+					slices.SortStableFunc(stateRows, func(r1, r2 *stateRow) int {
+						switch {
+						case r1.order < r2.order:
+							return -1
+						case r1.order > r2.order:
+							return 1
+						}
+						return 0
+					})
+					for i, sr := range stateRows {
+						state := sr.state
+						row := sr.row
+						setRow(i+1, state, urlWidth, strconv.Itoa(int(row.ReqId)), row.Url, bytesFormat(row.BytesSentPerSecond), bytesFormat(row.BytesReceivedPerSecond), rateFormat(row.BytesSentPerSecond), rateFormat(row.BytesReceivedPerSecond))
 					}
 					// remove any extra rows
-					for i := table.GetRowCount() - 1; i > countRows; i-- {
+					for i := table.GetRowCount() - 1; i > rowsToDisplay; i-- {
 						table.RemoveRow(i)
 					}
 					// remove hidden rows

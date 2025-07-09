@@ -72,7 +72,7 @@ func (t *TrafficTable) RemoveDead() {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	t.table = slices.DeleteFunc(t.table, func(row *TrafficRow) bool {
-		return !row.Removed.IsZero() && time.Since(row.Removed) > 5*time.Second
+		return !row.Removed.IsZero() && time.Since(row.Removed) > 30*time.Second
 	})
 }
 

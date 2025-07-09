@@ -53,7 +53,7 @@ func consoleClose() {
 }
 
 func readConsole(c chan byte) {
-	b := make([]byte, 1)
+	b := make([]byte, 10)
 	for {
 		n, err := os.Stdin.Read(b)
 		if err != nil {
@@ -67,7 +67,6 @@ func readConsole(c chan byte) {
 					appKeyNoLock(b[0])
 				}
 			})
-
 		}
 	}
 }

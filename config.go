@@ -41,7 +41,6 @@ type HostCache struct {
 
 const EXPERIMENTAL_CONNETION_POOLS = "connection-pools"
 const EXPERIMENTAL_HOSTS_CACHE = "hosts-cache"
-const EXPERIMENTAL_CONSOLE_UI = "console-ui"
 
 const CREDENTIAL_KERBEROS = "kerberos"
 
@@ -70,7 +69,6 @@ func NewConfig(name string) (*Config, error) {
 	config.conf.Verbose = config.conf.Verbose || options.Verbose || config.conf.Debug
 	config.conf.experimentalConnectionPools = isExperimental(config.conf.Experimental, EXPERIMENTAL_CONNETION_POOLS)
 	config.conf.experimentalHostsCache = isExperimental(config.conf.Experimental, EXPERIMENTAL_HOSTS_CACHE)
-	config.conf.experimentalConsoleUI = isExperimental(config.conf.Experimental, EXPERIMENTAL_CONSOLE_UI)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "unable to read config")
 	}
@@ -1055,9 +1053,9 @@ type Conf struct {
 	Experimental                string       // space/comma separated list of features
 	experimentalConnectionPools bool         // add a connection pool for http
 	experimentalHostsCache      bool         // add a hosts cache for proxy lookup - fine grained url lookup is then disabled
-	experimentalConsoleUI       bool   // enable console ui
 	ACL                         []string     `yaml:"acl"` // comma-separated list of allowed IPs or CIDRs. If empty everybody is allowed
 	pacProxies                  []*ConfProxy // list of proxy ordered by pacOrder, used for pac proxy
+	ConsoleUI                   bool         `yaml:"ui"` // enable console ui
 }
 
 type ConfCred struct {

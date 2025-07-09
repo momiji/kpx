@@ -1,4 +1,4 @@
-kpx: $(wildcard *.go go.mod go.sum)
+kpx: $(wildcard *.go go.mod go.sum cli/*.go ui/*.go)
 	go build -o kpx -ldflags="-s -w -X main.Version=dev/$$(date +%FT%T%z)" cli/main.go
 
 .PHONY: mod

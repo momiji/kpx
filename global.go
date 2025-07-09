@@ -64,6 +64,7 @@ type Options struct {
 	Trace       bool
 	Verbose     bool
 	ACL         string
+	ConsoleUI   bool
 
 	bindHost  string
 	bindPort  int

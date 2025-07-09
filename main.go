@@ -48,6 +48,7 @@ Options:
                                  can also replace user in configuration file, when there is only one user defined
           --acl=<ips>            list of comma-separated IPs or CIDRs, who is allowed to connect
           --timeout=<timeout>    automatically stop {{.AppName}} after specified seconds, when run without config file, defaults to 3600s = 1h (set to 0 to disable)
+          --ui                   enable experimental console UI
       -e, --encrypt              encrypt a password, encryption key location is {{.AppName}}.key  
       -d, --debug                run in debug mode, displaying all headers
       -t, --trace                run in trace mode, displaying everything
@@ -94,6 +95,10 @@ update: false
 restart: false
 # use proxy environment variables for downloading updates and pac files, defaults to false
 useEnvProxy: false
+# experimental features, defaults to none
+experimental: connection-pools hosts-cache
+# experimental console ui
+ui: false
 
 # list of proxies
 proxies:
@@ -288,6 +293,7 @@ func cmd() {
 	flag.BoolVar(&options.ShowVersion, "V", false, "")
 	flag.BoolVar(&options.ShowVersion, "version", false, "")
 	flag.StringVar(&options.ACL, "acl", "", "")
+	flag.BoolVar(&options.ConsoleUI, "ui", false, "enable experimental console UI")
 	flag.Parse()
 	args := flag.Args()
 
@@ -404,7 +410,7 @@ func start() {
 		logFatal("[-] Error: %s", err)
 	}
 	// load console ui
-	proxy.consoleUI = proxy.getConfig().conf.experimentalConsoleUI
+	proxy.consoleUI = proxy.getConfig().conf.ConsoleUI || options.ConsoleUI
 	if proxy.consoleUI {
 		go proxy.ui()
 	}

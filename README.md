@@ -136,20 +136,14 @@ proxies:
     port: 8080
     credential: user
     pac: proxy-sgt*
-  ret-o365:
+  any:
     type: kerberos
     spn: HTTP
     realm: EUR.MSD.WORLD.COMPANY
-    host: proxy-sgt-o365.si.company
-    port: 8080
+    host: "*"      # automatically use host:port given by PAC file 
     credential: user
-  mkt-o365:
-    type: kerberos
-    spn: HTTP
-    realm: EUR.MSD.WORLD.COMPANY
-    host: proxy-mkt-o365.si.company
-    port: 8080
-    credential: user
+    pac: proxy-*   # catch all proxy-* from PAC files
+    pacOrder: 100  # use this in last resort, default pacOrder is 0
   socks:
     type: socks
     host: socks.si.company
@@ -183,7 +177,7 @@ acl:
 
 ```yaml
 $ kpx --help
-kpx 1.9.1 - https://github.com/momiji/kpx
+kpx dev - https://github.com/momiji/kpx
 
 kpx is a Kerberos authenticating HTTP/1.1 proxy, that forwards requests to any upstream proxies and servers.
 It exposes an anonymous proxy, automatically injecting required credentials when forwarding requests.
@@ -208,9 +202,9 @@ Options:
                                  /!\ domain is case-sensitive in Kerberos, however it is uppercased as all internet usage seems to be uppercase
                                  domain is automatically expanded to .EXAMPLE.COM when set from command line
                                  can also replace user in configuration file, when there is only one user defined
-          --timeout=<timeout>    automatically stop kpx after specified seconds, when run without config file, defaults to 3600s = 1h (set to 0 to disable)
           --acl=<ips>            list of comma-separated IPs or CIDRs, who is allowed to connect
-      -e, --encrypt              encrypt a password, encryption key location is kpx.key
+          --timeout=<timeout>    automatically stop kpx after specified seconds, when run without config file, defaults to 3600s = 1h (set to 0 to disable)
+      -e, --encrypt              encrypt a password, encryption key location is kpx.key  
       -d, --debug                run in debug mode, displaying all headers
       -t, --trace                run in trace mode, displaying everything
       -v, --verbose              run in verbose mode, displaying all requests (automatically set if run without config file)
@@ -254,7 +248,6 @@ restart: false
 # use proxy environment variables for downloading updates and pac files, defaults to false
 useEnvProxy: false
 
-
 # list of proxies
 proxies:
 # sample of a PAC proxy. 'credentials' is used to list the users we need to get login/password on startup
@@ -267,7 +260,7 @@ proxies:
     type: pac
     url: http://broproxycfg.int.world.company/ProxyPac/proxy.pac
     credentials: user
-        verbose: true
+	verbose: true
 # sample of kerberos proxy. 'pac' is used to get the kerberos realm in PAC proxies at runtime
   mkt:
     type: kerberos
@@ -285,12 +278,21 @@ proxies:
     port: 8080
     credential: user
     pac: proxy-sgt*
+# catch-all proxy with kerberos authentication
+  any:
+    type: kerberos
+    spn: HTTP
+    realm: EUR.MSD.WORLD.COMPANY
+    host: "*"      # automatically use host:port given by PAC file 
+    credential: user
+    pac: proxy-*   # catch all proxy-* from PAC files
+    parOrder: 100  # use this in last resort, default pacOrder is 0
 # sample of anonymous (no authentication) proxy. 'ssl' for HTTPS proxy
   net:
     type: anonymous
     host: 127.0.0.1
     port: 3128
-        ssl: false
+	ssl: false
 # sample of socks proxy
   nets:
     type: socks

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -196,7 +197,7 @@ func (c *Config) check() (err error) {
 			if proxy.Host == nil {
 				return stacktrace.NewError("proxy '%s': non-pac proxy must contain 'host'", name)
 			}
-			if proxy.Port == 0 {
+			if proxy.Port == 0 && *proxy.Host != "*" {
 				return stacktrace.NewError("proxy '%s': non-pac proxy port number must be > 0", name)
 			}
 			if proxy.Credentials != nil {
@@ -428,6 +429,15 @@ func (c *Config) build() error {
 			proxy.pacRegex = regex
 		}
 	}
+	// build pac proxies sorted by pacOrder
+	c.conf.pacProxies = make([]*ConfProxy, 0)
+	for _, proxy := range c.conf.Proxies {
+		if proxy.Pac != nil {
+			c.conf.pacProxies = append(c.conf.pacProxies, proxy)
+		}
+	}
+	sort.SliceStable(c.conf.pacProxies, func(i, j int) bool { return c.conf.pacProxies[i].PacOrder < c.conf.pacProxies[j].PacOrder })
+
 	// build creds
 	for name, cred := range c.conf.Credentials {
 		credName := name
@@ -797,22 +807,41 @@ func (c *Config) resolve(url, host string, rule *ConfRule) []*ConfProxy {
 	case pacResult.isSocks, pacResult.isProxy:
 		// lookup hostPort in existing proxies (host/port and pac), if found use it, otherwise create a new one
 		var pacProxies []*ConfProxy
-		for _, confProxy := range c.conf.Proxies {
+		for _, confProxy := range c.conf.pacProxies {
 			//if confProxy.Host != nil {
 			//	if *confProxy.Host+":"+strconv.Itoa(confProxy.Port) == pacResult.hostPort {
 			//		return confProxy
 			//	}
 			//}
-			if confProxy.pacRegex != nil {
-				if strings.Contains(confProxy.pacRegex.regex, ":") {
-					if confProxy.pacRegex.pattern.MatchString(pacResult.hostPort) {
-						pacProxies = append(pacProxies, confProxy)
-					}
-				} else if confProxy.pacRegex != nil {
-					if confProxy.pacRegex.pattern.MatchString(pacResult.hostOnly) {
-						pacProxies = append(pacProxies, confProxy)
+			var found *ConfProxy
+			if strings.Contains(confProxy.pacRegex.regex, ":") {
+				if confProxy.pacRegex.pattern.MatchString(pacResult.hostPort) {
+					found = confProxy
+				}
+			} else if confProxy.pacRegex != nil {
+				if confProxy.pacRegex.pattern.MatchString(pacResult.hostOnly) {
+					found = confProxy
+				}
+			}
+			if found != nil {
+				if *found.Host == "*" {
+					name := *found.name + ">" + pacResult.hostPort
+					// copy only necessary fields
+					found = &ConfProxy{
+						name:       &name,
+						Type:       found.Type,
+						typeValue:  found.typeValue,
+						Host:       &pacResult.hostOnly,
+						Port:       pacResult.portOnly,
+						Verbose:    found.Verbose,
+						Ssl:        found.Ssl,
+						Spn:        found.Spn,
+						Realm:      found.Realm,
+						Credential: found.Credential,
+						cred:       found.cred,
 					}
 				}
+				pacProxies = append(pacProxies, found)
 			}
 		}
 		if pacProxies != nil {
@@ -829,7 +858,7 @@ func (c *Config) resolve(url, host string, rule *ConfRule) []*ConfProxy {
 		return []*ConfProxy{{
 			name:      &proxyName,
 			Type:      &proxyType,
-			typeValue: ProxySocks.Value(),
+			typeValue: proxyType.Value(),
 			Host:      &host,
 			Port:      port,
 			Verbose:   rule.Verbose,
@@ -852,6 +881,7 @@ func (c *Config) resolvePac(url, host string, proxy *ConfProxy) *PacResult {
 			isSocks:  false,
 			hostPort: "",
 			hostOnly: "",
+			portOnly: 0,
 		}
 	}
 	proxies, _ := pac.Run(url, host)
@@ -862,7 +892,12 @@ func (c *Config) resolvePac(url, host string, proxy *ConfProxy) *PacResult {
 	if len(split) > 1 {
 		pHostPort = strings.TrimSpace(split[1])
 	}
-	pHostOnly := strings.Split(pHostPort, ":")[0]
+	split = strings.Split(pHostPort, ":")
+	pHostOnly := split[0]
+	pPortOnly := 8080
+	if len(split) > 1 {
+		pPortOnly, _ = strconv.Atoi(split[1])
+	}
 	return &PacResult{
 		proxy:    firstProxy,
 		isDirect: pType == "DIRECT",
@@ -870,6 +905,7 @@ func (c *Config) resolvePac(url, host string, proxy *ConfProxy) *PacResult {
 		isSocks:  pType == "SOCKS" || pType == "SOCKS4" || pType == "SOCKS5",
 		hostPort: pHostPort,
 		hostOnly: pHostOnly,
+		portOnly: pPortOnly,
 	}
 }
 
@@ -1014,10 +1050,11 @@ type Conf struct {
 	Update                      bool
 	Restart                     bool
 	UseEnvProxy                 bool
-	Experimental                string   // space/comma separated list of features
-	experimentalConnectionPools bool     // add a connection pool for http
-	experimentalHostsCache      bool     // add a hosts cache for proxy lookup - fine grained url lookup is then disabled
-	ACL                         []string `yaml:"acl"` // comma-separated list of allowed IPs or CIDRs. If empty everybody is allowed
+	Experimental                string       // space/comma separated list of features
+	experimentalConnectionPools bool         // add a connection pool for http
+	experimentalHostsCache      bool         // add a hosts cache for proxy lookup - fine grained url lookup is then disabled
+	ACL                         []string     `yaml:"acl"` // comma-separated list of allowed IPs or CIDRs. If empty everybody is allowed
+	pacProxies                  []*ConfProxy // list of proxy ordered by pacOrder, used for pac proxy
 }
 
 type ConfCred struct {
@@ -1044,6 +1081,7 @@ type ConfProxy struct {
 	Credentials *string
 	cred        *ConfCred // cannot be nil for kerberos, basic, and eventually for socks
 	Pac         *string
+	PacOrder    int `yaml:"pacOrder"` // order of pac execution, higher means executed last, default value is 0
 	pacRegex    *ConfRegex
 	Url         *string
 	pacJs       *string
@@ -1084,6 +1122,7 @@ type PacResult struct {
 	isSocks  bool
 	hostPort string
 	hostOnly string
+	portOnly int
 }
 
 func (c *Config) newHttpClient() *http.Client {

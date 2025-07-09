@@ -125,6 +125,15 @@ proxies:
     port: 8080
     credential: user
     pac: proxy-sgt*
+# catch-all proxy with kerberos authentication
+  any:
+    type: kerberos
+    spn: HTTP
+    realm: EUR.MSD.WORLD.COMPANY
+    host: "*"      # automatically use host:port given by PAC file 
+    credential: user
+    pac: proxy-*   # catch all proxy-* from PAC files
+    pacOrder: 100  # use this in last resort, default pacOrder is 0
 # sample of anonymous (no authentication) proxy. 'ssl' for HTTPS proxy
   net:
     type: anonymous
@@ -182,7 +191,7 @@ rules:
   - host: "re:^github\.com$|^gitlab.com$"
     proxy: mkt
     verbose: true
-# sample: use mitm to have man-int-the-middle hijacked connections, CA is written in {{.AppName}}.ca.crt 
+# sample: use mitm to have man-int-the-middle hijacked connections, CA is written in {{.AppName}}.ca.crt
   - host: "update.microsoft.com"
     proxy: mkt
     verbose: true

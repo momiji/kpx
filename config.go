@@ -246,11 +246,9 @@ func (c *Config) check() (err error) {
 			return stacktrace.NewError("rule %d: must contain 'proxy' or 'dns'", i)
 		}
 		if rule.Proxy != nil {
-			if *rule.Proxy != ProxyDirect.Name() && *rule.Proxy != ProxyNone.Name() {
-				for _, p := range rule.allProxiesName() {
-					if c.conf.Proxies[p] == nil {
-						return stacktrace.NewError("rule %d: '%s' must exist in 'proxies', or be 'direct' or 'none'", i, p)
-					}
+			for _, p := range rule.allProxiesName() {
+				if p != ProxyDirect.Name() && p != ProxyNone.Name() && c.conf.Proxies[p] == nil {
+					return stacktrace.NewError("rule %d: '%s' must exist in 'proxies', or be 'direct' or 'none'", i, p)
 				}
 			}
 		}
@@ -281,11 +279,9 @@ func (c *Config) check() (err error) {
 			return stacktrace.NewError("socks rule %d: must contain 'proxy' or 'dns'", i)
 		}
 		if rule.Proxy != nil {
-			if *rule.Proxy != ProxyDirect.Name() && *rule.Proxy != ProxyNone.Name() {
-				for _, p := range rule.allProxiesName() {
-					if c.conf.Proxies[p] == nil {
-						return stacktrace.NewError("socks rule %d: '%s' must exist in 'proxies', or be 'direct' or 'none'", i, p)
-					}
+			for _, p := range rule.allProxiesName() {
+				if p != ProxyDirect.Name() && p != ProxyNone.Name() && c.conf.Proxies[p] == nil {
+					return stacktrace.NewError("socks rule %d: '%s' must exist in 'proxies', or be 'direct' or 'none'", i, p)
 				}
 			}
 		}

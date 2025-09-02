@@ -470,7 +470,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 		return p.closeChannels(clientChannel, proxyChannel)
 	}
 	// treat CONNECT as a forever duplex pipe
-	if clientChannel.header.isConnect {
+	if clientChannel.header.isConnect || proxyChannel.header.status == 100 {
 		if trace {
 			logTrace(p.ti, "duplex pipe forever")
 		}
@@ -599,12 +599,16 @@ func (p *Process) forwardRequest(clientChannel *ProxyRequest, proxyChannel *Prox
 			return err // no wrap
 		}
 	}
+	expectContinue := true
 	for _, header := range clientChannel.header.headers[1:] {
 		lower := strings.ToLower(header)
-		if strings.HasPrefix(lower, "proxy-connection:") || strings.HasPrefix(lower, "connection:") {
+		switch {
+		case strings.HasPrefix(lower, "proxy-connection:") || strings.HasPrefix(lower, "connection:"):
 			continue
-		} else if strings.HasPrefix(lower, "proxy-authorization:") {
+		case strings.HasPrefix(lower, "proxy-authorization:"):
 			continue
+		case strings.HasPrefix(lower, "expect") && strings.Contains(lower, "100-continue") && strings.ToUpper(clientChannel.header.method) == "PUT":
+			expectContinue = true
 		}
 		err = proxyChannel.writeHeaderLine(header)
 		if err != nil {
@@ -624,6 +628,10 @@ func (p *Process) forwardRequest(clientChannel *ProxyRequest, proxyChannel *Prox
 	err = proxyChannel.closeHeader()
 	if err != nil {
 		return err // no wrap
+	}
+	// special PUT with Expect: 100-continue
+	if expectContinue {
+		return nil
 	}
 	return p.forwardStream(clientChannel, proxyChannel)
 }
@@ -705,7 +713,7 @@ func (p *Process) forwardResponse(proxyChannel *ProxyRequest, clientChannel *Pro
 		return err // no wrap
 	}
 	// special response if HEAD
-	if strings.ToUpper(proxyChannel.header.method) == "HEAD" {
+	if strings.ToUpper(clientChannel.header.method) == "HEAD" {
 		return nil
 	}
 	return p.forwardStream(proxyChannel, clientChannel)

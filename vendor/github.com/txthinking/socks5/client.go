@@ -153,6 +153,9 @@ func (c *Client) Write(b []byte) (int, error) {
 
 func (c *Client) Close() error {
 	if c.UDPConn == nil {
+		if c.TCPConn == nil {
+			return nil
+		}
 		return c.TCPConn.Close()
 	}
 	if c.TCPConn != nil {

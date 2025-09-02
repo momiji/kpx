@@ -42,6 +42,7 @@ type cScreen struct {
 	truecolor  bool
 	running    bool
 	disableAlt bool // disable the alternate screen
+	title      string
 
 	w int
 	h int
@@ -49,6 +50,7 @@ type cScreen struct {
 	oscreen     consoleInfo
 	ocursor     cursorInfo
 	cursorStyle CursorStyle
+	cursorColor Color
 	oimode      uint32
 	oomode      uint32
 	cells       CellBuffer
@@ -164,6 +166,20 @@ const (
 	vtEnableAm                = "\x1b[?7h"
 	vtEnterCA                 = "\x1b[?1049h\x1b[22;0;0t"
 	vtExitCA                  = "\x1b[?1049l\x1b[23;0;0t"
+	vtDoubleUnderline         = "\x1b[4:2m"
+	vtCurlyUnderline          = "\x1b[4:3m"
+	vtDottedUnderline         = "\x1b[4:4m"
+	vtDashedUnderline         = "\x1b[4:5m"
+	vtUnderColor              = "\x1b[58:5:%dm"
+	vtUnderColorRGB           = "\x1b[58:2::%d:%d:%dm"
+	vtUnderColorReset         = "\x1b[59m"
+	vtEnterUrl                = "\x1b]8;%s;%s\x1b\\" // NB arg 1 is id, arg 2 is url
+	vtExitUrl                 = "\x1b]8;;\x1b\\"
+	vtCursorColorRGB          = "\x1b]12;#%02x%02x%02x\007"
+	vtCursorColorReset        = "\x1b]112\007"
+	vtSaveTitle               = "\x1b[22;2t"
+	vtRestoreTitle            = "\x1b[23;2t"
+	vtSetTitle                = "\x1b]2;%s\x1b\\"
 )
 
 var vtCursorStyles = map[CursorStyle]string{
@@ -335,8 +351,10 @@ func (s *cScreen) disengage() {
 
 	if s.vten {
 		s.emitVtString(vtCursorStyles[CursorStyleDefault])
+		s.emitVtString(vtCursorColorReset)
 		s.emitVtString(vtEnableAm)
 		if !s.disableAlt {
+			s.emitVtString(vtRestoreTitle)
 			s.emitVtString(vtExitCA)
 		}
 	} else if !s.disableAlt {
@@ -374,9 +392,13 @@ func (s *cScreen) engage() error {
 	if s.vten {
 		s.setOutMode(modeVtOutput | modeNoAutoNL | modeCookedOut | modeUnderline)
 		if !s.disableAlt {
+			s.emitVtString(vtSaveTitle)
 			s.emitVtString(vtEnterCA)
 		}
 		s.emitVtString(vtDisableAm)
+		if s.title != "" {
+			s.emitVtString(fmt.Sprintf(vtSetTitle, s.title))
+		}
 	} else {
 		s.setOutMode(0)
 	}
@@ -426,6 +448,12 @@ func (s *cScreen) showCursor() {
 	if s.vten {
 		s.emitVtString(vtShowCursor)
 		s.emitVtString(vtCursorStyles[s.cursorStyle])
+		if s.cursorColor == ColorReset {
+			s.emitVtString(vtCursorColorReset)
+		} else if s.cursorColor.Valid() {
+			r, g, b := s.cursorColor.RGB()
+			s.emitVtString(fmt.Sprintf(vtCursorColorRGB, r, g, b))
+		}
 	} else {
 		s.setCursorInfo(&cursorInfo{size: 100, visible: 1})
 	}
@@ -449,11 +477,12 @@ func (s *cScreen) ShowCursor(x, y int) {
 	s.Unlock()
 }
 
-func (s *cScreen) SetCursorStyle(cs CursorStyle) {
+func (s *cScreen) SetCursor(cs CursorStyle, cc Color) {
 	s.Lock()
 	if !s.fini {
 		if _, ok := vtCursorStyles[cs]; ok {
 			s.cursorStyle = cs
+			s.cursorColor = cc
 			s.doCursor()
 		}
 	}
@@ -626,25 +655,28 @@ var vkKeys = map[uint16]Key{
 func getu32(v []byte) uint32 {
 	return uint32(v[0]) + (uint32(v[1]) << 8) + (uint32(v[2]) << 16) + (uint32(v[3]) << 24)
 }
+
 func geti32(v []byte) int32 {
 	return int32(getu32(v))
 }
+
 func getu16(v []byte) uint16 {
 	return uint16(v[0]) + (uint16(v[1]) << 8)
 }
+
 func geti16(v []byte) int16 {
 	return int16(getu16(v))
 }
 
 // Convert windows dwControlKeyState to modifier mask
-func mod2mask(cks uint32) ModMask {
+func mod2mask(cks uint32, filter_ctrl_alt bool) ModMask {
 	mm := ModNone
 	// Left or right control
 	ctrl := (cks & (0x0008 | 0x0004)) != 0
 	// Left or right alt
 	alt := (cks & (0x0002 | 0x0001)) != 0
 	// Filter out ctrl+alt (it means AltGr)
-	if !(ctrl && alt) {
+	if !filter_ctrl_alt || !(ctrl && alt) {
 		if ctrl {
 			mm |= ModCtrl
 		}
@@ -759,10 +791,10 @@ func (s *cScreen) getConsoleInput() error {
 				// synthesized key code
 				for krec.repeat > 0 {
 					// convert shift+tab to backtab
-					if mod2mask(krec.mod) == ModShift && krec.ch == vkTab {
+					if mod2mask(krec.mod, false) == ModShift && krec.ch == vkTab {
 						s.postEvent(NewEventKey(KeyBacktab, 0, ModNone))
 					} else {
-						s.postEvent(NewEventKey(KeyRune, rune(krec.ch), mod2mask(krec.mod)))
+						s.postEvent(NewEventKey(KeyRune, rune(krec.ch), mod2mask(krec.mod, true)))
 					}
 					krec.repeat--
 				}
@@ -774,7 +806,7 @@ func (s *cScreen) getConsoleInput() error {
 				return nil
 			}
 			for krec.repeat > 0 {
-				s.postEvent(NewEventKey(key, rune(krec.ch), mod2mask(krec.mod)))
+				s.postEvent(NewEventKey(key, rune(krec.ch), mod2mask(krec.mod, false)))
 				krec.repeat--
 			}
 
@@ -787,7 +819,7 @@ func (s *cScreen) getConsoleInput() error {
 			mrec.flags = getu32(rec.data[12:])
 			btns := mrec2btns(mrec.btns, mrec.flags)
 			// we ignore double click, events are delivered normally
-			s.postEvent(NewEventMouse(int(mrec.x), int(mrec.y), btns, mod2mask(mrec.mod)))
+			s.postEvent(NewEventMouse(int(mrec.x), int(mrec.y), btns, mod2mask(mrec.mod, false)))
 
 		case resizeEvent:
 			var rrec resizeRecord
@@ -875,7 +907,7 @@ func mapColor2RGB(c Color) uint16 {
 
 // Map a tcell style to Windows attributes
 func (s *cScreen) mapStyle(style Style) uint16 {
-	f, b, a := style.Decompose()
+	f, b, a := style.fg, style.bg, style.attrs
 	fa := s.oscreen.attrs & 0xf
 	ba := (s.oscreen.attrs) >> 4 & 0xf
 	if f != ColorDefault && f != ColorReset {
@@ -909,22 +941,44 @@ func (s *cScreen) mapStyle(style Style) uint16 {
 	return attr
 }
 
-func (s *cScreen) sendVtStyle(style Style) {
+func (s *cScreen) makeVtStyle(style Style) string {
 	esc := &strings.Builder{}
 
-	fg, bg, attrs := style.Decompose()
+	fg, bg, attrs := style.fg, style.bg, style.attrs
+	us, uc := style.ulStyle, style.ulColor
 
 	esc.WriteString(vtSgr0)
-
 	if attrs&(AttrBold|AttrDim) == AttrBold {
 		esc.WriteString(vtBold)
 	}
 	if attrs&AttrBlink != 0 {
 		esc.WriteString(vtBlink)
 	}
-	if attrs&AttrUnderline != 0 {
+	if us != UnderlineStyleNone {
+		if uc == ColorReset {
+			esc.WriteString(vtUnderColorReset)
+		} else if uc.IsRGB() {
+			r, g, b := uc.RGB()
+			_, _ = fmt.Fprintf(esc, vtUnderColorRGB, int(r), int(g), int(b))
+		} else if uc.Valid() {
+			_, _ = fmt.Fprintf(esc, vtUnderColor, uc&0xff)
+		}
+
 		esc.WriteString(vtUnderline)
+		// legacy ConHost does not understand these but Terminal does
+		switch us {
+		case UnderlineStyleSolid:
+		case UnderlineStyleDouble:
+			esc.WriteString(vtDoubleUnderline)
+		case UnderlineStyleCurly:
+			esc.WriteString(vtCurlyUnderline)
+		case UnderlineStyleDotted:
+			esc.WriteString(vtDottedUnderline)
+		case UnderlineStyleDashed:
+			esc.WriteString(vtDashedUnderline)
+		}
 	}
+
 	if attrs&AttrReverse != 0 {
 		esc.WriteString(vtReverse)
 	}
@@ -940,30 +994,47 @@ func (s *cScreen) sendVtStyle(style Style) {
 	} else if bg.Valid() {
 		_, _ = fmt.Fprintf(esc, vtSetBg, bg&0xff)
 	}
-	s.emitVtString(esc.String())
+	// URL string can be long, so don't send it unless we really need to
+	if style.url != "" {
+		_, _ = fmt.Fprintf(esc, vtEnterUrl, style.urlId, style.url)
+	} else {
+		esc.WriteString(vtExitUrl)
+	}
+
+	return esc.String()
 }
 
-func (s *cScreen) writeString(x, y int, style Style, ch []uint16) {
+func (s *cScreen) sendVtStyle(style Style) {
+	s.emitVtString(s.makeVtStyle(style))
+}
+
+func (s *cScreen) writeString(x, y int, style Style, vtBuf, ch []uint16) {
 	// we assume the caller has hidden the cursor
 	if len(ch) == 0 {
 		return
 	}
-	s.setCursorPos(x, y, s.vten)
 
 	if s.vten {
-		s.sendVtStyle(style)
+		vtBuf = append(vtBuf, utf16.Encode([]rune(fmt.Sprintf(vtCursorPos, y+1, x+1)))...)
+		styleStr := s.makeVtStyle(style)
+		vtBuf = append(vtBuf, utf16.Encode([]rune(styleStr))...)
+		vtBuf = append(vtBuf, ch...)
+		_ = syscall.WriteConsole(s.out, &vtBuf[0], uint32(len(vtBuf)), nil, nil)
+		vtBuf = vtBuf[:0]
 	} else {
+		s.setCursorPos(x, y, s.vten)
 		_, _, _ = procSetConsoleTextAttribute.Call(
 			uintptr(s.out),
 			uintptr(s.mapStyle(style)))
+		_ = syscall.WriteConsole(s.out, &ch[0], uint32(len(ch)), nil, nil)
 	}
-	_ = syscall.WriteConsole(s.out, &ch[0], uint32(len(ch)), nil, nil)
 }
 
 func (s *cScreen) draw() {
 	// allocate a scratch line bit enough for no combining chars.
 	// if you have combining characters, you may pay for extra allocations.
 	buf := make([]uint16, 0, s.w)
+	var vtBuf []uint16
 	wcs := buf[:]
 	lstyle := styleInvalid
 
@@ -982,7 +1053,7 @@ func (s *cScreen) draw() {
 				// write out any data queued thus far
 				// because we are going to skip over some
 				// cells, or because we need to change styles
-				s.writeString(lx, ly, lstyle, wcs)
+				s.writeString(lx, ly, lstyle, vtBuf, wcs)
 				wcs = buf[0:0]
 				lstyle = StyleDefault
 				if !dirty {
@@ -1009,7 +1080,7 @@ func (s *cScreen) draw() {
 			}
 			x += width - 1
 		}
-		s.writeString(lx, ly, lstyle, wcs)
+		s.writeString(lx, ly, lstyle, vtBuf, wcs)
 		wcs = buf[0:0]
 		lstyle = styleInvalid
 	}
@@ -1062,7 +1133,6 @@ func (s *cScreen) setCursorInfo(info *cursorInfo) {
 	_, _, _ = procSetConsoleCursorInfo.Call(
 		uintptr(s.out),
 		uintptr(unsafe.Pointer(info)))
-
 }
 
 func (s *cScreen) setCursorPos(x, y int, vtEnable bool) {
@@ -1227,6 +1297,15 @@ func (s *cScreen) SetStyle(style Style) {
 	s.Unlock()
 }
 
+func (s *cScreen) SetTitle(title string) {
+	s.Lock()
+	s.title = title
+	if s.vten {
+		s.emitVtString(fmt.Sprintf(vtSetTitle, title))
+	}
+	s.Unlock()
+}
+
 // No fallback rune support, since we have Unicode.  Yay!
 
 func (s *cScreen) RegisterRuneFallback(_ rune, _ string) {
@@ -1244,6 +1323,12 @@ func (s *cScreen) CanDisplay(_ rune, _ bool) bool {
 
 func (s *cScreen) HasMouse() bool {
 	return true
+}
+
+func (s *cScreen) SetClipboard(_ []byte) {
+}
+
+func (s *cScreen) GetClipboard() {
 }
 
 func (s *cScreen) Resize(int, int, int, int) {}

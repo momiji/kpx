@@ -379,12 +379,20 @@ func (i *InputField) Autocomplete() *InputField {
 	}
 
 	// Fill it with the entries.
+	currentIndex := i.autocompleteList.GetCurrentItem()
+	var currentSelection string
+	if currentIndex >= 0 && currentIndex < i.autocompleteList.GetItemCount() {
+		currentSelection, _ = i.autocompleteList.GetItemText(currentIndex)
+	}
 	currentEntry := -1
 	suffixLength := math.MaxInt
 	i.autocompleteList.Clear()
 	for index, entry := range entries {
 		i.autocompleteList.AddItem(entry, "", 0, nil)
-		if strings.HasPrefix(entry, text) && len(entry)-len(text) < suffixLength {
+		if currentSelection != "" && entry == currentSelection {
+			currentEntry = index
+		}
+		if currentSelection == "" && strings.HasPrefix(entry, text) && len(entry)-len(text) < suffixLength {
 			currentEntry = index
 			suffixLength = len(text) - len(entry)
 		}
@@ -534,14 +542,11 @@ func (i *InputField) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 		var skipAutocomplete bool
 		currentText := i.textArea.GetText()
 		defer func() {
-			newText := i.textArea.GetText()
-			if newText != currentText {
-				if !skipAutocomplete {
-					i.Autocomplete()
-				}
-				if i.changed != nil {
-					i.changed(newText)
-				}
+			if skipAutocomplete {
+				return
+			}
+			if i.textArea.GetText() != currentText {
+				i.Autocomplete()
 			}
 		}()
 
@@ -641,14 +646,11 @@ func (i *InputField) MouseHandler() func(action MouseAction, event *tcell.EventM
 		var skipAutocomplete bool
 		currentText := i.GetText()
 		defer func() {
-			newText := i.GetText()
-			if newText != currentText {
-				if !skipAutocomplete {
-					i.Autocomplete()
-				}
-				if i.changed != nil {
-					i.changed(newText)
-				}
+			if skipAutocomplete {
+				return
+			}
+			if i.textArea.GetText() != currentText {
+				i.Autocomplete()
 			}
 		}()
 

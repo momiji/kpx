@@ -1,3 +1,31 @@
+- semver: 1.12.0
+  date: 2025-09-02T17:57:07.461083628+02:00
+  packager: momiji <momiji@github.com>
+  changes:
+    - commit: 7cb85aa341e9ed65938c26dd2102e1013b579dd8
+      note: 'chore: go mod vendor'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 913f5bef533e8d999830ca3d0e008f869d46f7f3
+      note: 'feat: new log format'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 4aaec3844d0f348b2ab94351913646a9e885ef1c
+      note: 'fix: handle HEAD and 100-continue'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
 - semver: 1.11.0
   date: 2025-07-09T17:27:29.394988579+02:00
   packager: Christian Bourgeois <momiji@users.noreply.github.com>

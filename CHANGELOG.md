@@ -1,4 +1,10 @@
 
+## [1.12.0](https://github.com/momiji/kpx/compare/v1.11.0...v1.12.0) (2025-09-02)
+
+* feat: new log format [913f5bef](https://github.com/momiji/kpx/commit/913f5bef533e8d999830ca3d0e008f869d46f7f3)
+* fix: handle HEAD and 100-continue [4aaec384](https://github.com/momiji/kpx/commit/4aaec3844d0f348b2ab94351913646a9e885ef1c)
+
+
 ## [1.11.0](https://github.com/momiji/kpx/compare/v1.10.0...v1.11.0) (2025-07-09)
 
 * feat: add experimental optional console ui (#5) [8dd991b9](https://github.com/momiji/kpx/commit/8dd991b9cb3122ca921225b36beb1974ce7d7f21)

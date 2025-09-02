@@ -6,14 +6,15 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/momiji/kpx/ui"
-	"github.com/txthinking/socks5"
 	"io"
 	"net"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/momiji/kpx/ui"
+	"github.com/txthinking/socks5"
 
 	"github.com/palantir/stacktrace"
 	netproxy "golang.org/x/net/proxy"
@@ -124,7 +125,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 		logInfo("%s", p.logLine)
 	}
 	if debug {
-		prefix := fmt.Sprintf("%s <", p.logPrefix)
+		prefix := fmt.Sprintf("%s C<", p.logPrefix)
 		for _, header := range clientChannel.header.headers {
 			logHeader("%s %s", prefix, header)
 		}
@@ -326,7 +327,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 					return p.closeChannels(clientChannel, proxyChannel)
 				}
 				if debug {
-					proxyChannel.prefix = fmt.Sprintf("%s <<", p.logPrefix)
+					proxyChannel.prefix = fmt.Sprintf("%s P<", p.logPrefix)
 				}
 				proxyChannel.conn.setTimeout(p.config.conf.IdleTimeout)
 				err = proxyChannel.readResponseHeaders()
@@ -340,7 +341,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 					return p.closeChannels(clientChannel, proxyChannel)
 				}
 				if debug {
-					proxyChannel.prefix = fmt.Sprintf("%s >>", p.logPrefix)
+					proxyChannel.prefix = fmt.Sprintf("%s P>", p.logPrefix)
 				}
 				proxyChannel.conn = NewTimedConn(tls.Client(proxyChannel.conn.conn, &tls.Config{ServerName: clientChannel.header.host}), newTraceInfo(p.reqId, "proxy"))
 				err = p.forwardRequest(clientChannel, proxyChannel, *firstProxy.Type, authorization)
@@ -356,7 +357,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 			logTrace(p.ti, "read response")
 		}
 		if debug {
-			proxyChannel.prefix = fmt.Sprintf("%s <<", p.logPrefix)
+			proxyChannel.prefix = fmt.Sprintf("%s P<", p.logPrefix)
 		}
 		if simulateConnect {
 			// inject headers manually as if proxyChannel has been called
@@ -446,7 +447,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 				logInfo("%s", p.logLine)
 			}
 			if debug {
-				prefix := fmt.Sprintf("%s <", p.logPrefix)
+				prefix := fmt.Sprintf("%s C<", p.logPrefix)
 				for _, header := range clientChannel.header.headers {
 					logHeader("%s %s", prefix, header)
 				}
@@ -456,7 +457,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 				break
 			}
 			if debug {
-				proxyChannel.prefix = fmt.Sprintf("%s <<", p.logPrefix)
+				proxyChannel.prefix = fmt.Sprintf("%s P<", p.logPrefix)
 			}
 			err = proxyChannel.readResponseHeaders()
 			if err != nil {
@@ -585,7 +586,7 @@ func (p *Process) closeChannel(channel *ProxyRequest) {
 func (p *Process) forwardRequest(clientChannel *ProxyRequest, proxyChannel *ProxyRequest, proxyType ProxyType, auth *string) error {
 	var err error
 	if debug {
-		proxyChannel.prefix = fmt.Sprintf("%s >>", p.logPrefix)
+		proxyChannel.prefix = fmt.Sprintf("%s P>", p.logPrefix)
 	}
 	// https://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html 5.1.2 => request line must use absoluteUri <=> target is a proxy
 	if proxyType == ProxyDirect || proxyType == ProxySocks {
@@ -639,7 +640,7 @@ func (p *Process) forwardRequest(clientChannel *ProxyRequest, proxyChannel *Prox
 func (p *Process) forwardConnect(clientChannel *ProxyRequest, proxyChannel *ProxyRequest, _ ProxyType, auth *string) error {
 	var err error
 	if debug {
-		proxyChannel.prefix = fmt.Sprintf("%s >>", p.logPrefix)
+		proxyChannel.prefix = fmt.Sprintf("%s P>", p.logPrefix)
 	}
 	// https://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html 5.1.2 => request line must use absoluteUri <=> target is a proxy
 	err = proxyChannel.writeRequestLine("CONNECT", clientChannel.header.hostPort, clientChannel.header.version)
@@ -679,7 +680,7 @@ func (p *Process) forwardConnect(clientChannel *ProxyRequest, proxyChannel *Prox
 func (p *Process) forwardResponse(proxyChannel *ProxyRequest, clientChannel *ProxyRequest, authentication bool) error {
 	var err error
 	if debug {
-		clientChannel.prefix = fmt.Sprintf("%s >", p.logPrefix)
+		clientChannel.prefix = fmt.Sprintf("%s C>", p.logPrefix)
 	}
 	for _, header := range proxyChannel.header.headers {
 		lower := strings.ToLower(header)

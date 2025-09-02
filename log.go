@@ -2,16 +2,17 @@ package kpx
 
 import (
 	"fmt"
-	"github.com/ccding/go-logging/logging"
 	"io"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/ccding/go-logging/logging"
 )
 
 const (
 	logFormat  = "%s %s\n time,message"
-	timeFormat = "2006/01/02 15:04:05"
+	timeFormat = "2006/01/02 15:04:05.999"
 )
 
 func logInit() {

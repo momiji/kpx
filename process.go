@@ -600,7 +600,7 @@ func (p *Process) forwardRequest(clientChannel *ProxyRequest, proxyChannel *Prox
 			return err // no wrap
 		}
 	}
-	expectContinue := true
+	expectContinue := false
 	for _, header := range clientChannel.header.headers[1:] {
 		lower := strings.ToLower(header)
 		switch {

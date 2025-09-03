@@ -1,4 +1,9 @@
 
+## [1.12.1](https://github.com/momiji/kpx/compare/v1.12.0...v1.12.1) (2025-09-03)
+
+* fix: bug with 100-continue affecting all requests [228b4c77](https://github.com/momiji/kpx/commit/228b4c7748c30993f1122e2c780742fce2d930dc)
+
+
 ## [1.12.0](https://github.com/momiji/kpx/compare/v1.11.0...v1.12.0) (2025-09-02)
 
 * feat: new log format [913f5bef](https://github.com/momiji/kpx/commit/913f5bef533e8d999830ca3d0e008f869d46f7f3)

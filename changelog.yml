@@ -1,3 +1,15 @@
+- semver: 1.12.1
+  date: 2025-09-03T19:53:29.389778519+02:00
+  packager: momiji <momiji@github.com>
+  changes:
+    - commit: 228b4c7748c30993f1122e2c780742fce2d930dc
+      note: 'fix: bug with 100-continue affecting all requests'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
 - semver: 1.12.0
   date: 2025-09-02T17:57:07.461083628+02:00
   packager: momiji <momiji@github.com>

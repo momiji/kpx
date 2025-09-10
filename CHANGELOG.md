@@ -1,4 +1,9 @@
 
+## [1.12.2](https://github.com/momiji/kpx/compare/v1.12.1...v1.12.2) (2025-09-10)
+
+* fix: rulecheck - allow 'direct' and 'none' failover (#6) [53861047](https://github.com/momiji/kpx/commit/538610473338f5254f61b6751dbc38075e28d6a6)
+
+
 ## [1.12.1](https://github.com/momiji/kpx/compare/v1.12.0...v1.12.1) (2025-09-03)
 
 * fix: bug with 100-continue affecting all requests [228b4c77](https://github.com/momiji/kpx/commit/228b4c7748c30993f1122e2c780742fce2d930dc)

@@ -1,3 +1,31 @@
+- semver: 1.12.2
+  date: 2025-09-10T10:18:52.565051208+02:00
+  packager: momiji <momiji@github.com>
+  changes:
+    - commit: 685425b5a73b454116da7b463506fff2bb12deaa
+      note: 'chore: go mod vendor'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: bdd8b035a81f26fc6c1be261b0fbf3534a90a157
+      note: 'chore: make update to "go get -u && go mod tidy/vendor"'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 538610473338f5254f61b6751dbc38075e28d6a6
+      note: 'fix: rulecheck - allow ''direct'' and ''none'' failover (#6)'
+      author:
+        name: alexdarbyshire
+        email: 157761717+alexdarbyshire@users.noreply.github.com
+      committer:
+        name: GitHub
+        email: noreply@github.com
 - semver: 1.12.1
   date: 2025-09-03T19:53:29.389778519+02:00
   packager: momiji <momiji@github.com>

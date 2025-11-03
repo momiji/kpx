@@ -1,3 +1,9 @@
+
+## [1.12.3](https://github.com/momiji/kpx/compare/v1.12.2...v1.12.3) (2025-11-03)
+
+* fix: invalid non-empty acl when started from command line [27fa9223](https://github.com/momiji/kpx/commit/27fa92234f7ddc202df46ed1ccd91a97726c2faa)
+
+
 ## [1.12.2](https://github.com/momiji/kpx/compare/v1.12.1...v1.12.2) (2025-09-10)
 
 * fix: rulecheck - allow 'direct' and 'none' failover (#6) [53861047](https://github.com/momiji/kpx/commit/538610473338f5254f61b6751dbc38075e28d6a6)

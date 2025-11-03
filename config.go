@@ -140,7 +140,9 @@ func (c *Config) readFromConfig() error {
 		Proxy: &proxyName,
 	}
 
-	c.conf.ACL = strings.Split(options.ACL, ",")
+	if options.ACL != "" {
+		c.conf.ACL = strings.Split(options.ACL, ",")
+	}
 
 	return nil
 }

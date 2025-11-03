@@ -1,3 +1,31 @@
+- semver: 1.12.3
+  date: 2025-11-03T15:22:54.387723481+01:00
+  packager: ""
+  changes:
+    - commit: 27fa92234f7ddc202df46ed1ccd91a97726c2faa
+      note: 'fix: invalid non-empty acl when started from command line'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 2e7b1f4f25ff7d39c81f8eb36f20abf02164cc70
+      note: 'chore: update makefile'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 3a9c4c44d589201b3ae5f2c91d1417210b52d0f6
+      note: 'chore: go mod vendor'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
 - semver: 1.12.2
   date: 2025-09-10T10:18:52.565051208+02:00
   packager: momiji <momiji@github.com>

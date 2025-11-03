@@ -1,4 +1,8 @@
 
+## [1.12.3](https://github.com/momiji/kpx/compare/v1.12.3...v1.12.3) (2025-11-03)
+
+
+
 ## [1.12.3](https://github.com/momiji/kpx/compare/v1.12.2...v1.12.3) (2025-11-03)
 
 * fix: invalid non-empty acl when started from command line [27fa9223](https://github.com/momiji/kpx/commit/27fa92234f7ddc202df46ed1ccd91a97726c2faa)

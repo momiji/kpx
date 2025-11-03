@@ -1,4 +1,16 @@
 - semver: 1.12.3
+  date: 2025-11-03T15:25:28.453615866+01:00
+  packager: ""
+  changes:
+    - commit: 7ce9e57a975c1a1caa6b039782df9846ae6412f2
+      note: 'chore: go mod vendor'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+- semver: 1.12.3
   date: 2025-11-03T15:22:54.387723481+01:00
   packager: ""
   changes:

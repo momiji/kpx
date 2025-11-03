@@ -3,7 +3,7 @@ kpx: $(wildcard *.go go.mod go.sum cli/*.go ui/*.go)
 
 .PHONY: mod
 update:
-	GOPROXY= GOSUMDB= proxy go get -u -v
+	GOPROXY= GOSUMDB= go get -u -v
 	go mod tidy
 	go mod vendor
 

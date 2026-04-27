@@ -3,7 +3,6 @@ package kpx
 import (
 	"container/list"
 	"fmt"
-	"github.com/momiji/kpx/ui"
 	"math"
 	"net"
 	"os"
@@ -14,6 +13,9 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/momiji/kpx/log"
+	"github.com/momiji/kpx/ui"
 
 	"github.com/txthinking/socks5"
 
@@ -541,7 +543,8 @@ func (p *Proxy) exit(code int) {
 		ui.StopUI()
 		<-ui.StoppedUI
 	}
-	logDestroy()
+	// logDestroy()
+	_logger.Destroy()
 	os.Exit(code)
 }
 
@@ -550,7 +553,8 @@ func (p *Proxy) ui() {
 	exitSignal := make(chan os.Signal, 1)
 	signal.Notify(exitSignal, syscall.SIGINT, syscall.SIGTERM)
 	// replace logger writer with suspendable ui writer
-	logWriter(ui.WriterUI(os.Stdout))
+	// logWriter(ui.WriterUI(os.Stdout))
+	_logger.SetMode(log.LogModeNone)
 	// start ui
 	go ui.RunUI(true)
 	// wait for exit signal

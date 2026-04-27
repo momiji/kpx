@@ -694,7 +694,7 @@ null
 }
 
 func (c *Config) askCredentials() error {
-	logFlush()
+	// logFlush()
 	var err error
 	for _, cred := range c.conf.Credentials {
 		if cred.isUsed && !cred.isPerUser && !cred.isNative {

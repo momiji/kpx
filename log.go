@@ -2,43 +2,16 @@ package kpx
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strings"
-	"time"
 
-	"github.com/ccding/go-logging/logging"
+	"github.com/momiji/kpx/log"
 )
 
-const (
-	logFormat  = "%s %s\n time,message"
-	timeFormat = "2006/01/02 15:04:05.999"
-)
-
-func logInit() {
-	var err error
-	logger, err = logging.CustomizedLogger("main", logging.NOTSET, logFormat, timeFormat, os.Stdout, false, logging.DefaultQueueSize, logging.DefaultRequestSize, logging.DefaultBufferSize, logging.DefaultTimeInterval)
-	if err != nil {
-		fmt.Printf("Error: unable to create logger: %v", err)
-		os.Exit(1)
-	}
-}
-
-func logDestroy() {
-	logger.Destroy()
-}
-
-func logWriter(writer io.Writer) {
-	logger.SetWriter(writer)
-}
-
-func logFlush() {
-	logger.Flush()
-}
+var _logger = log.NewDefaultLogger()
 
 func logPrintf(format string, a ...any) {
-	format = fmt.Sprintf("%s %s", time.Now().Format(timeFormat), format)
-	fmt.Printf(format, a...)
+	_logger.Infof(format, a...)
 }
 
 func logHeader(format string, prefix string, header string) {
@@ -68,18 +41,18 @@ func newTraceInfo(reqId int32, name string) *traceInfo {
 }
 
 func logTrace(ti *traceInfo, format string, args ...interface{}) {
-	logger.Debugf(fmt.Sprintf("(%d) %s: %s", ti.reqId, ti.name, format), args...)
+	_logger.Debugf(fmt.Sprintf("(%d) %s: %s", ti.reqId, ti.name, format), args...)
 }
 func logInfo(format string, args ...interface{}) {
-	logger.Infof(format, args...)
+	_logger.Infof(format, args...)
 }
 
 func logError(format string, args ...interface{}) {
-	logger.Errorf(format, args...)
+	_logger.Errorf(format, args...)
 }
 
 func logFatal(format string, args ...interface{}) {
-	logger.Fatalf(format, args...)
-	logger.Destroy()
+	_logger.Errorf(format, args...)
+	_logger.Destroy()
 	os.Exit(1) // TODO p.exit ?
 }

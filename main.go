@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/jcmturner/gokrb5/v8/client"
+	"github.com/momiji/kpx/log"
 )
 
 var VersionValue = ""
@@ -243,8 +244,9 @@ func Main() {
 	UsageValue = templates(UsageTemplate, values)
 	HelpValue = templates(HelpTemplate, values)
 	client.MyCrossDomainPatch() // Ensure krb5 library is pacthed for Cross-Domain support
-	logInit()
-	defer logDestroy()
+	// logInit()
+	// defer logDestroy()
+	defer _logger.Destroy()
 	cmd()
 	start()
 }
@@ -409,6 +411,7 @@ func start() {
 	if err != nil {
 		logFatal("[-] Error: %s", err)
 	}
+	_logger.SetMode(log.LogModeAsync)
 	// load console ui
 	proxy.consoleUI = proxy.getConfig().conf.ConsoleUI || options.ConsoleUI
 	if proxy.consoleUI {

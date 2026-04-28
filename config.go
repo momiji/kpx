@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/howeyc/gopass"
 	"github.com/momiji/kpx/log"
+	"github.com/momiji/kpx/utils"
 	"github.com/palantir/stacktrace"
 	"golang.org/x/text/encoding/charmap"
 	yaml2 "gopkg.in/yaml.v2"
@@ -442,7 +443,7 @@ func (c *Config) build() error {
 		credName := name
 		cred.name = &credName
 		if cred.Password != nil && strings.HasPrefix(*cred.Password, ENCRYPTED) {
-			password, err := decrypt((*cred.Password)[len(ENCRYPTED):])
+			password, err := utils.Decrypt((*cred.Password)[len(ENCRYPTED):], options.KeyFile)
 			if err != nil {
 				return stacktrace.Propagate(err, "unable to decrypt '%s' password", name)
 			}

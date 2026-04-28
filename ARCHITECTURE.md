@@ -58,14 +58,12 @@ kpx/
 ├── pac/                       # PAC file execution (JavaScript)
 │   └── pac.go                 # PacExecutor, pool of goja runtimes
 │
-├── crypto/                    # Password encryption
-│   └── crypto.go              # AES-GCM, .key file management
-│
 ├── log/                       # Logging
 │   └── log.go                 # Init, levels, sensitive header masking
 │
 ├── utils/                     # Shared utilities
-│   └── mre.go                 # ManualResetEvent (goroutine synchronization)
+│   ├── mre.go                 # ManualResetEvent (goroutine synchronization)
+│   └── password.go            # Password encryption
 │
 ├── ui/                        # TUI / console interface (existing)
 │   ├── ui.go

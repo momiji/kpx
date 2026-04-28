@@ -16,6 +16,7 @@ import (
 
 	"github.com/momiji/kpx/log"
 	"github.com/momiji/kpx/ui"
+	"github.com/momiji/kpx/utils"
 
 	"github.com/txthinking/socks5"
 
@@ -32,8 +33,8 @@ type Proxy struct {
 	lastModTime                 time.Time              // not atomic - used only for get/set in one coroutine
 	lastLoadTime                time.Time              // not atomic - used only for get/set in one coroutine
 	loadCounter                 atomic.Int32           // atomic - used in each process to test if config has been updated
-	reloadEvent                 *ManualResetEvent      //
-	fixWatchEvent               *ManualResetEvent      //
+	reloadEvent                 *utils.ManualResetEvent      //
+	fixWatchEvent               *utils.ManualResetEvent      //
 	connPool                    map[string]*list.List  // must be synced - used in each process
 	poolMutex                   sync.Mutex             // atomic - used in each process
 	experimentalConnectionPools bool
@@ -79,8 +80,8 @@ func (p *Proxy) init() error {
 	p.forceStop = false
 	// p.krbClients = make(map[string]*KerberosClient)
 	// p.configPtr = (*unsafe.Pointer)(unsafe.Pointer(&p.unsafeConfig))
-	p.reloadEvent = NewManualResetEvent(false)
-	p.fixWatchEvent = NewManualResetEvent(false)
+	p.reloadEvent = utils.NewManualResetEvent(false)
+	p.fixWatchEvent = utils.NewManualResetEvent(false)
 	p.connPool = map[string]*list.List{}
 	return nil
 }

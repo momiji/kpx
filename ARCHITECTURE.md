@@ -64,7 +64,7 @@ kpx/
 ├── log/                       # Logging
 │   └── log.go                 # Init, levels, sensitive header masking
 │
-├── util/                      # Shared utilities
+├── utils/                     # Shared utilities
 │   └── mre.go                 # ManualResetEvent (goroutine synchronization)
 │
 ├── ui/                        # TUI / console interface (existing)

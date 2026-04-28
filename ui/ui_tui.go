@@ -2,6 +2,7 @@ package ui
 
 import (
 	"github.com/dustin/go-humanize"
+	"github.com/momiji/kpx/utils"
 	"github.com/enterprizesoftware/rate-counter"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -14,9 +15,9 @@ import (
 var screen tcell.Screen
 var app *tview.Application
 var table *tview.Table
-var appClosed = NewManualResetEvent(true)
-var stopUpdate = NewManualResetEvent(false)
-var updateStopped = NewManualResetEvent(false)
+var appClosed = utils.NewManualResetEvent(true)
+var stopUpdate = utils.NewManualResetEvent(false)
+var updateStopped = utils.NewManualResetEvent(false)
 
 const (
 	rowActive = iota
@@ -190,7 +191,7 @@ func appUpdate() {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	for {
 		select {
-		case <-stopUpdate.c:
+		case <-stopUpdate.Channel():
 			return
 		case <-quitUI:
 			return

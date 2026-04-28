@@ -2,11 +2,12 @@ package ui
 
 import (
 	"github.com/momiji/kpx/term"
+	"github.com/momiji/kpx/utils"
 	"os"
 )
 
-var consoleClosed = NewManualResetEvent(true)
-var closeConsole = NewManualResetEvent(false)
+var consoleClosed = utils.NewManualResetEvent(true)
+var closeConsole = utils.NewManualResetEvent(false)
 var consoleInited = false
 var consoleChan = make(chan byte)
 

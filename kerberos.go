@@ -2,13 +2,14 @@ package kpx
 
 import (
 	"fmt"
-	"github.com/jcmturner/gokrb5/v8/client"
-	"github.com/jcmturner/gokrb5/v8/config"
-	"github.com/palantir/stacktrace"
 	"net"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/jcmturner/gokrb5/v8/client"
+	"github.com/jcmturner/gokrb5/v8/config"
+	"github.com/palantir/stacktrace"
 )
 
 type Kerberos struct {
@@ -154,7 +155,7 @@ func (k *Kerberos) NewWithPassword(username, realm, password string) *client.Cli
 		}
 	}
 	// create new client
-	logInfo("[-] Authenticating user '%s' on realm '%s'", username, realm)
+	_logger.Infof("[-] Authenticating user '%s' on realm '%s'", username, realm)
 	cl := client.NewWithPassword(username, realm, password, krbCfg, client.DisablePAFXFAST(true))
 	return cl
 }

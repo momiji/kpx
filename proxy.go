@@ -52,6 +52,15 @@ func (p *Proxy) setConfig(config *Config) {
 	p.loadCounter.Add(1)
 	trace = config.conf.Trace
 	debug = config.conf.Debug
+	switch {
+	case trace:
+		_logger.SetLogLevel(log.LogLevelTrace)
+	case debug:
+		_logger.SetLogLevel(log.LogLevelDebug)
+	default:
+		_logger.SetLogLevel(log.LogLevelInfo)
+	}
+
 	p.experimentalConnectionPools = config.conf.experimentalConnectionPools
 	//
 	features := ""
@@ -62,7 +71,7 @@ func (p *Proxy) setConfig(config *Config) {
 		features += "," + EXPERIMENTAL_HOSTS_CACHE
 	}
 	if features != "" {
-		logInfo("[-] Experimental features: " + features[1:])
+		_logger.Infof("[-] Experimental features: " + features[1:])
 	}
 }
 
@@ -142,7 +151,7 @@ func (p *Proxy) loadKerberos(config *Config) error {
 
 func (p *Proxy) watch1() {
 	if trace {
-		logInfo("start configuration reload task")
+		_logger.Infof("start configuration reload task")
 	}
 	for {
 		select {
@@ -151,7 +160,7 @@ func (p *Proxy) watch1() {
 		}
 		p.reloadEvent.Reset()
 		if trace {
-			logInfo("reload configuration")
+			_logger.Infof("reload configuration")
 		}
 		p.reload()
 		p.fixWatchEvent.Signal()
@@ -162,12 +171,12 @@ func (p *Proxy) watch2() {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		if trace {
-			logError("watcher error: %v", err)
+			_logger.Errorf("watcher error: %v", err)
 		}
 		return
 	}
 	if trace {
-		logInfo("start configuration watcher task")
+		_logger.Infof("start configuration watcher task")
 	}
 	timer := time.AfterFunc(math.MaxInt64, func() { p.reloadEvent.Signal() })
 	timer.Stop()
@@ -181,19 +190,19 @@ func (p *Proxy) watch2() {
 			wl := watcher.WatchList()
 			if len(wl) != 1 || wl[0] != watchPath {
 				if trace {
-					logInfo("reconfigure watcher")
+					_logger.Infof("reconfigure watcher")
 				}
 				_ = watcher.Add(watchPath)
 			}
 		case e, ok := <-watcher.Errors:
 			// watcher error
 			if trace {
-				logInfo("watcher error: ok=%v %v", ok, e)
+				_logger.Infof("watcher error: ok=%v %v", ok, e)
 			}
 		case e, ok := <-watcher.Events:
 			// watcher event
 			if trace {
-				logInfo("watcher event: ok=%v %v", ok, e)
+				_logger.Infof("watcher event: ok=%v %v", ok, e)
 			}
 			if !ok {
 				continue
@@ -219,7 +228,7 @@ func (p *Proxy) reload() {
 	p.lastModTime = stat.ModTime()
 	p.lastLoadTime = time.Now()
 	if err != nil {
-		logInfo("[-] Error while reloading configuration: %s", err)
+		_logger.Infof("[-] Error while reloading configuration: %s", err)
 		return
 	}
 	// test if we can hot-reload - no need for more credentials
@@ -237,12 +246,12 @@ func (p *Proxy) reload() {
 		// then verify if it used it must have a login/password
 		if cred.isUsed && !cred.isNative {
 			if cred.Login == nil || cred.Password == nil {
-				logInfo("[-] Could not Hot-reload the configuration as it requires new credentials")
+				_logger.Infof("[-] Could not Hot-reload the configuration as it requires new credentials")
 				return
 			}
 		}
 	}
-	logInfo("[-] Hot-reload of the configuration succeeded")
+	_logger.Infof("[-] Hot-reload of the configuration succeeded")
 	// replace current config with the new one
 	p.setConfig(newConfig)
 }
@@ -257,7 +266,7 @@ func (p *Proxy) run() error {
 			<-time.After(time.Duration(options.Timeout) * time.Second)
 			p.exit(0)
 		}()
-		logInfo("[-] Proxy will exit automatically in %v seconds", options.Timeout)
+		_logger.Infof("[-] Proxy will exit automatically in %v seconds", options.Timeout)
 	}
 
 	// start automatic pool vacuum
@@ -276,7 +285,7 @@ func (p *Proxy) run() error {
 		}
 
 		hostPort := ln.Addr().String()
-		logInfo("[-] Use %s as your http proxy or http://%s/proxy.pac as your proxy PAC url", hostPort, hostPort)
+		_logger.Infof("[-] Use %s as your http proxy or http://%s/proxy.pac as your proxy PAC url", hostPort, hostPort)
 
 		go func() {
 			for {
@@ -286,7 +295,7 @@ func (p *Proxy) run() error {
 				}
 				remoteIp := strings.Split(conn.RemoteAddr().String(), ":")[0]
 				if !p.isAllowed(remoteIp, p.getConfig().conf.ACL) {
-					logInfo("[-] Connection from %s is not allowed by ACL", remoteIp)
+					_logger.Infof("[-] Connection from %s is not allowed by ACL", remoteIp)
 					_ = conn.Close() // force closing client, ignore any error
 					continue
 				}
@@ -296,17 +305,17 @@ func (p *Proxy) run() error {
 					break
 				}
 				if trace {
-					logInfo("new connection")
+					_logger.Infof("new connection")
 				}
 				go func() {
 					c := p.requestsCount.Add(1)
 					if trace {
-						logInfo("connections count=%d", c)
+						_logger.Infof("connections count=%d", c)
 					}
 					NewProcess(p, conn).processHttp()
 					c = p.requestsCount.Add(-1)
 					if trace {
-						logInfo("connections count=%d", c)
+						_logger.Infof("connections count=%d", c)
 					}
 				}()
 			}
@@ -320,7 +329,7 @@ func (p *Proxy) run() error {
 		if err != nil {
 			return stacktrace.Propagate(err, "unable to create socks server on %s:%d", config.conf.Bind, config.conf.SocksPort)
 		}
-		logInfo("[-] Use %s as your socks5 proxy and configure it to use remote dns - curl syntax is 'curl -x socks5h://%s' or 'curl --socks5-hostname %s'", socks.Addr, socks.Addr, socks.Addr)
+		_logger.Infof("[-] Use %s as your socks5 proxy and configure it to use remote dns - curl syntax is 'curl -x socks5h://%s' or 'curl --socks5-hostname %s'", socks.Addr, socks.Addr, socks.Addr)
 		go func() {
 			err = socks.ListenAndServe(p)
 			if err != nil {
@@ -331,7 +340,7 @@ func (p *Proxy) run() error {
 
 	// start console ui and data cleanup
 	if p.consoleUI {
-		logInfo("[-] Starting console UI")
+		_logger.Infof("[-] Starting console UI")
 		go func() {
 			time.Sleep(1 * time.Second)
 			ui.SwitchUI(false)
@@ -356,7 +365,7 @@ func (p *Proxy) run() error {
 
 func (p *Proxy) TCPHandle(server *socks5.Server, conn *net.TCPConn, request *socks5.Request) error {
 	if request.Cmd != socks5.CmdConnect {
-		logInfo("[-] TCP socks proxy is not implemented for command %b", request.Cmd)
+		_logger.Infof("[-] TCP socks proxy is not implemented for command %b", request.Cmd)
 		return nil
 	}
 	// return any address, not important as we are using connect?
@@ -379,7 +388,7 @@ func (p *Proxy) TCPHandle(server *socks5.Server, conn *net.TCPConn, request *soc
 }
 
 func (p *Proxy) UDPHandle(server *socks5.Server, addr *net.UDPAddr, datagram *socks5.Datagram) error {
-	logInfo("[-] UDP socks proxy is not implemented")
+	_logger.Infof("[-] UDP socks proxy is not implemented")
 	return nil
 }
 
@@ -451,7 +460,7 @@ func (p *Proxy) newPooledConn(dialer *net.Dialer, network string, proxy string, 
 			pc := item.Value.(*PooledConnection)
 			if pc.timeout.After(time.Now()) {
 				if trace {
-					logInfo("(%d) reusing connection %d from pool", reqId, pc.reqId)
+					_logger.Infof("(%d) reusing connection %d from pool", reqId, pc.reqId)
 				}
 				_ = pc.conn.SetDeadline(time.Time{})
 				pc.conn.Reset(reqId)
@@ -460,7 +469,7 @@ func (p *Proxy) newPooledConn(dialer *net.Dialer, network string, proxy string, 
 				_ = pc.conn.Close()
 			}
 			if trace {
-				logInfo("(%d) removed old connection %d from pool", reqId, pc.reqId)
+				_logger.Infof("(%d) removed old connection %d from pool", reqId, pc.reqId)
 			}
 		}
 	}
@@ -472,7 +481,7 @@ func (p *Proxy) newPooledConn(dialer *net.Dialer, network string, proxy string, 
 func (p *Proxy) pushConnToPool(info *PooledConnectionInfo, reqId int32) {
 	if p.experimentalConnectionPools {
 		if trace {
-			logInfo("(%d) pushing connection %d to pool for later reuse", reqId, info.reqId)
+			_logger.Infof("(%d) pushing connection %d to pool for later reuse", reqId, info.reqId)
 		}
 		p.poolMutex.Lock()
 		defer p.poolMutex.Unlock()
@@ -494,7 +503,7 @@ func (p *Proxy) pushConnToPool(info *PooledConnectionInfo, reqId int32) {
 
 func (p *Proxy) vacuumPool() {
 	if trace {
-		logInfo("deleting connections from pool")
+		_logger.Infof("deleting connections from pool")
 	}
 	p.poolMutex.Lock()
 	defer p.poolMutex.Unlock()
@@ -518,7 +527,7 @@ func (p *Proxy) vacuumPool() {
 		}
 	}
 	if trace {
-		logInfo("%d connections removed from pool, %d remaining", count, total-count)
+		_logger.Infof("%d connections removed from pool, %d remaining", count, total-count)
 	}
 }
 

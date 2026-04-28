@@ -316,7 +316,7 @@ func cmd() {
 		options.Proxy = args[0]
 	}
 
-	logPrintf("[-] Proxy %s started\n", VersionValue)
+	_logger.Infof("[-] Proxy %s started\n", VersionValue)
 
 	if options.Proxy == "" {
 		if options.Config == "" {
@@ -346,7 +346,7 @@ func cmd() {
 		if options.User != "" {
 			options.login, options.domain = splitUsername(options.User, "")
 			if options.domain == "" {
-				logFatal("[-] Error: invalid value %q for flag -u: missing domain", options.User)
+				_logger.Fatalf("[-] Error: invalid value %q for flag -u: missing domain", options.User)
 			}
 			if !strings.Contains(options.domain, ".") {
 				options.domain = options.domain + AppDefaultDomain
@@ -405,11 +405,11 @@ func start() {
 	proxy := Proxy{}
 	err := proxy.init()
 	if err != nil {
-		logFatal("[-] Error: %s", err)
+		_logger.Fatalf("[-] Error: %s", err)
 	}
 	err = proxy.load()
 	if err != nil {
-		logFatal("[-] Error: %s", err)
+		_logger.Fatalf("[-] Error: %s", err)
 	}
 	_logger.SetMode(log.LogModeAsync)
 	// load console ui
@@ -433,7 +433,7 @@ func start() {
 	// start proxy
 	err = proxy.run()
 	if err != nil {
-		logFatal("[-] Error: %s", err)
+		_logger.Fatalf("[-] Error: %s", err)
 	}
 	proxy.stop()
 }
@@ -461,11 +461,11 @@ func update(proxy *Proxy) {
 	if url == "" {
 		return
 	}
-	logInfo("[-] Checking for updates: %s", url)
+	_logger.Infof("[-] Checking for updates: %s", url)
 	httpClient := config.newHttpClient()
 	get, err := httpClient.Get(url)
 	if err != nil {
-		logError("[-] Update failed: %v", err)
+		_logger.Errorf("[-] Update failed: %v", err)
 		return
 	}
 	defer func(Body io.ReadCloser) {
@@ -473,19 +473,19 @@ func update(proxy *Proxy) {
 	}(get.Body)
 	jsb, err := io.ReadAll(get.Body)
 	if err != nil {
-		logError("[-] Update failed: %v", err)
+		_logger.Errorf("[-] Update failed: %v", err)
 		return
 	}
 	js := map[string]any{}
 	err = json.Unmarshal(jsb, &js)
 	if err != nil {
-		logError("[-] Update failed: %v", err)
+		_logger.Errorf("[-] Update failed: %v", err)
 		return
 	}
 	// check for new version
 	ver := jsString(js, "name")
 	if ver == AppVersion || ver == "v"+AppVersion {
-		logInfo("[-] No update available")
+		_logger.Infof("[-] No update available")
 		return
 	}
 	// find download url
@@ -503,31 +503,31 @@ func update(proxy *Proxy) {
 		}
 	}
 	if assetUrl == "" {
-		logInfo("[-] No download url available")
+		_logger.Infof("[-] No download url available")
 		return
 	}
-	logInfo("[-] New version %s found", ver)
+	_logger.Infof("[-] New version %s found", ver)
 	// automatically update ?
 	if !conf.Update {
-		logInfo("[-] Skipping update (update=false)")
+		_logger.Infof("[-] Skipping update (update=false)")
 		return
 	}
 	// download release
-	logInfo("[-] Downloading update: %s", assetUrl)
+	_logger.Infof("[-] Downloading update: %s", assetUrl)
 	exe, err := os.Executable()
 	if err != nil {
-		logError("[-] Download failed: %v", err)
+		_logger.Errorf("[-] Download failed: %v", err)
 		return
 	}
 	stat, err := os.Stat(exe)
 	if err != nil {
-		logError("[-] Download failed: %v", err)
+		_logger.Errorf("[-] Download failed: %v", err)
 		return
 	}
 	_ = os.Remove(exe + ".new")
 	file, err := os.Create(exe + ".new")
 	if err != nil {
-		logError("[-] Download failed: %v", err)
+		_logger.Errorf("[-] Download failed: %v", err)
 		return
 	}
 	defer func(file *os.File) {
@@ -539,7 +539,7 @@ func update(proxy *Proxy) {
 	}(file.Name())
 	get, err = httpClient.Get(assetUrl)
 	if err != nil {
-		logError("[-] Download failed: %v", err)
+		_logger.Errorf("[-] Download failed: %v", err)
 		return
 	}
 	defer func(Body io.ReadCloser) {
@@ -547,49 +547,49 @@ func update(proxy *Proxy) {
 	}(get.Body)
 	_, err = io.Copy(writer, get.Body)
 	if err != nil {
-		logError("[-] Download failed: %v", err)
+		_logger.Errorf("[-] Download failed: %v", err)
 		return
 	}
 	err = writer.Flush()
 	if err != nil {
-		logError("[-] Download failed: %v", err)
+		_logger.Errorf("[-] Download failed: %v", err)
 		return
 	}
 	err = file.Close()
 	if err != nil {
-		logError("[-] Download failed: %v", err)
+		_logger.Errorf("[-] Download failed: %v", err)
 		return
 	}
 	// replace executable
-	logInfo("[-] Installing update: %s", exe)
+	_logger.Infof("[-] Installing update: %s", exe)
 	err = os.Chmod(file.Name(), stat.Mode())
 	if err != nil {
-		logError("[-] Install failed: %v", err)
+		_logger.Errorf("[-] Install failed: %v", err)
 		return
 	}
 	_ = os.Remove(exe + ".old")
 	err = syscall.Rename(exe, exe+".old")
 	if err != nil {
-		logError("[-] Install failed: %v", err)
+		_logger.Errorf("[-] Install failed: %v", err)
 		return
 	}
 	err = syscall.Rename(exe+".new", exe)
 	if err != nil {
-		logError("[-] Install failed: %v", err)
+		_logger.Errorf("[-] Install failed: %v", err)
 		return
 	}
 	// restart ?
 	if !conf.Restart {
-		logInfo("[-] Skipping restart (restart=false)")
+		_logger.Infof("[-] Skipping restart (restart=false)")
 		return
 	}
 	if config.disableAutoUpdate {
-		logInfo("[-] Skipping restart (interactive login/password)")
+		_logger.Infof("[-] Skipping restart (interactive login/password)")
 		return
 	}
 
 	// exit
-	logInfo("[-] Exiting on update (restart=true)")
+	_logger.Infof("[-] Exiting on update (restart=true)")
 	proxy.exit(200)
 }
 
@@ -617,3 +617,5 @@ func jsMap(v any) map[string]any {
 	}
 	return nil
 }
+
+var _logger = log.NewDefaultLogger()

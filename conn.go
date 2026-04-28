@@ -2,10 +2,12 @@ package kpx
 
 import (
 	"crypto/tls"
-	"github.com/momiji/kpx/ui"
 	"math"
 	"net"
 	"time"
+
+	"github.com/momiji/kpx/log"
+	"github.com/momiji/kpx/ui"
 )
 
 func ConfigureConn(conn net.Conn) {
@@ -27,16 +29,16 @@ TimedConn is a wrapper around net.Conn which provides automatic read/write timeo
 - if timeout < 0, set a sliding timeout, which automatically increases each min( 30s , timeout/2 ).
 */
 type TimedConn struct {
-	conn    net.Conn
-	timeout int
-	last    time.Time
-	self    *TimedConn
-	ti      *traceInfo
-	closed  bool
+	conn         net.Conn
+	timeout      int
+	last         time.Time
+	self         *TimedConn
+	moduleLogger *log.ModuleLogger
+	closed       bool
 }
 
-func NewTimedConn(conn net.Conn, ti *traceInfo) *TimedConn {
-	c := TimedConn{conn: conn, ti: ti}
+func NewTimedConn(conn net.Conn, ti *log.ModuleLogger) *TimedConn {
+	c := TimedConn{conn: conn, moduleLogger: ti}
 	c.self = &c
 	return &c
 }
@@ -72,7 +74,7 @@ func (tc *TimedConn) Write(b []byte) (n int, err error) {
 
 func (tc *TimedConn) Close() error {
 	if !tc.closed && trace {
-		logTrace(tc.ti, "close connection")
+		tc.moduleLogger.Debugf("close connection")
 	}
 	return tc.conn.Close()
 }
@@ -102,7 +104,7 @@ func (tc *TimedConn) SetWriteDeadline(_ time.Time) error {
 // sliding timeout reinitialize the timeout each 1/2 timeout or 30 seconds to keep the connection open.
 func (tc *TimedConn) setTimeout(timeout int) {
 	if trace {
-		logTrace(tc.ti, "set conn timeout %d", timeout)
+		tc.moduleLogger.Debugf("set conn timeout %d", timeout)
 	}
 	if timeout < 0 {
 		// double sliding timeout because it is expanded only 1/2 timeout
@@ -179,7 +181,7 @@ func (cc *CloseAwareConn) Write(b []byte) (n int, err error) {
 				return 0, err
 			}
 			if trace {
-				logInfo("(%d) connection %d replaced by a new one", cc.currId, cc.reqId)
+				_logger.Infof("(%d) connection %d replaced by a new one", cc.currId, cc.reqId)
 			}
 			return cc.conn.Write(b)
 		}
@@ -191,7 +193,7 @@ func (cc *CloseAwareConn) Write(b []byte) (n int, err error) {
 				return 0, err
 			}
 			if trace {
-				logInfo("(%d) connection %d replaced by a new one", cc.currId, cc.reqId)
+				_logger.Infof("(%d) connection %d replaced by a new one", cc.currId, cc.reqId)
 			}
 			return cc.conn.Write(b)
 		}

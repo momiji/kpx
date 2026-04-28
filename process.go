@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/momiji/kpx/log"
 	"github.com/momiji/kpx/ui"
 	"github.com/txthinking/socks5"
 
@@ -21,37 +22,39 @@ import (
 )
 
 type Process struct {
-	config      *Config //copy config here because it is multithreaded
-	proxy       *Proxy
-	conn        *TimedConn
-	reqId       int32
-	verbose     bool
-	logName     string
-	logPrefix   string
-	logLine     string
-	logTraffic  string
-	logHostPort string
-	loadCounter int32
-	ti          *traceInfo
-	traffic     *ui.TrafficRow
-	trafficConn *TrafficConn
+	config        *Config //copy config here because it is multithreaded
+	proxy         *Proxy
+	conn          *TimedConn
+	reqId         int32
+	verbose       bool
+	logName       string
+	logPrefix     string
+	logLine       string
+	logTraffic    string
+	logHostPort   string
+	loadCounter   int32
+	moduleLogger  *log.ModuleLogger
+	requestLogger *log.RequestLogger
+	traffic       *ui.TrafficRow
+	trafficConn   *TrafficConn
 }
 
 func NewProcess(proxy *Proxy, conn net.Conn) *Process {
 	reqId := proxy.newRequestId.Add(1)
-	ti := newTraceInfo(reqId, "process")
+	moduleLogger := log.NewModuleLogger(reqId, "process", _logger)
 	if trace {
-		logTrace(ti, "create process")
+		moduleLogger.Tracef("create process")
 	}
 	trafficConn := NewTrafficConn(conn)
 	return &Process{
-		config:      proxy.getConfig(),
-		proxy:       proxy,
-		conn:        NewTimedConn(trafficConn, newTraceInfo(reqId, "client")),
-		trafficConn: trafficConn,
-		reqId:       reqId,
-		loadCounter: proxy.loadCounter.Load(),
-		ti:          ti,
+		config:        proxy.getConfig(),
+		proxy:         proxy,
+		conn:          NewTimedConn(trafficConn, log.NewModuleLogger(reqId, "client", _logger)),
+		trafficConn:   trafficConn,
+		reqId:         reqId,
+		loadCounter:   proxy.loadCounter.Load(),
+		moduleLogger:  moduleLogger,
+		requestLogger: log.NewRequestLogger(reqId, _logger),
 	}
 }
 
@@ -60,7 +63,8 @@ func (p *Process) processHttp() {
 	defer func() { _ = p.conn.Close() }()
 	// loop until proxyChannel is empty, meaning connection should close
 	var clientChannel = &ProxyRequest{
-		conn: p.conn,
+		conn:      p.conn,
+		reqLogger: p.requestLogger,
 	}
 	// loop
 	var proxyChannel *ProxyRequest
@@ -75,9 +79,7 @@ func (p *Process) processHttp() {
 }
 
 func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *ProxyRequest {
-	if trace {
-		logTrace(p.ti, "start process")
-	}
+	p.moduleLogger.Tracef("start process")
 	p.logLine = ""
 	p.logPrefix = ""
 	clientChannel.prefix = ""
@@ -106,29 +108,21 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 
 	// if url is local server, serve as http server
 	// find proxy to use from host:port
-	if trace {
-		logTrace(p.ti, "proxy match")
-	}
+	p.moduleLogger.Tracef("proxy match")
 	rule, proxies := p.config.matchHttp(clientChannel.header.url, clientChannel.header.hostPort)
 	firstProxy, firstHostPort := p.findFirstProxy(rule, proxies)
-	if trace {
-		if firstProxy != nil {
-			logTrace(p.ti, "proxy matched '%s'", *firstProxy.name)
-		} else {
-			logTrace(p.ti, "no proxy matched")
-		}
+	if firstProxy != nil {
+		p.moduleLogger.Tracef("proxy matched '%s'", *firstProxy.name)
+	} else {
+		p.moduleLogger.Tracef("no proxy matched")
 	}
 
 	// print log in verbose mode
 	p.computeLog(clientChannel, rule, firstProxy, firstHostPort)
-	if p.verbose {
-		logInfo("%s", p.logLine)
-	}
-	if debug {
-		prefix := fmt.Sprintf("%s C<", p.logPrefix)
-		for _, header := range clientChannel.header.headers {
-			logHeader("%s %s", prefix, header)
-		}
+	p.requestLogger.Infof("%s", p.logLine)
+	prefix := fmt.Sprintf("%s C<", p.logPrefix)
+	for _, header := range clientChannel.header.headers {
+		p.requestLogger.Debugf("%s %s", prefix, sanitizeHeader(header))
 	}
 
 	// traffic data
@@ -162,7 +156,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 	// for basic, do this all the time, as basic info is always present
 	if authentication && firstProxy.cred.isPerUser {
 		if trace {
-			logTrace(p.ti, "per-user authentication")
+			p.moduleLogger.Debugf("per-user authentication")
 		}
 		proxyAuthorization := clientChannel.findHeader("proxy-authorization")
 		if proxyAuthorization != nil {
@@ -184,7 +178,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 	// for basic, do this all the time, as basic info is always present
 	if authentication && !firstProxy.cred.isPerUser {
 		if trace {
-			logTrace(p.ti, "authentication")
+			p.moduleLogger.Debugf("authentication")
 		}
 		var authenticated bool
 		authenticated, authorizationContext, authorizationFunc = p.computeAuthPerConf(firstProxy)
@@ -208,13 +202,9 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 	// try up to retryable connections
 	for {
 		pooledConnInfo = nil
-		if trace {
-			logTrace(p.ti, "start connection (retryable=%d)", retryable)
-		}
+		p.moduleLogger.Tracef("start connection (retryable=%d)", retryable)
 		if proxyChannel == nil {
-			if trace {
-				logTrace(p.ti, "create proxy channel")
-			}
+			p.moduleLogger.Tracef("create proxy channel")
 			var conn net.Conn
 			dialer := new(net.Dialer)
 			dialer.Timeout = time.Duration(p.config.conf.ConnectTimeout) * time.Second
@@ -280,17 +270,18 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 			}
 			// if err == nil and pi>0 or pj>0, update last usage
 			if err != nil {
-				logError("%s => dial: %#s", p.logLine, err)
+				p.requestLogger.Errorf("%s => dial: %#s", p.logLine, err)
 				return p.closeChannels(clientChannel, proxyChannel)
 			}
 			// if conn is nil - proxyType=PAC and PAC not downloaded, so it did not resolve to an other proxy
 			if conn == nil {
-				logInfo("%s => dial: no connection available", p.logLine)
+				p.requestLogger.Infof("%s => dial: no connection available", p.logLine)
 				return p.closeChannels(clientChannel, proxyChannel)
 			}
 			ConfigureConn(conn)
 			proxyChannel = &ProxyRequest{
-				conn: NewTimedConn(conn, newTraceInfo(p.reqId, "proxy")),
+				conn:      NewTimedConn(conn, log.NewModuleLogger(p.reqId, "proxy", _logger)),
+				reqLogger: p.requestLogger,
 			}
 		}
 
@@ -298,7 +289,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 		if authentication && authorization == nil {
 			authorization, err = authorizationFunc()
 			if err != nil {
-				logInfo("[-] Shutting down to prevent locking user account with repeated invalid password...")
+				_logger.Infof("[-] Shutting down to prevent locking user account with repeated invalid password...")
 				p.proxy.stop()
 				return nil
 			}
@@ -310,20 +301,20 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 		// forward request to proxy
 		if !simulateConnect {
 			if trace {
-				logTrace(p.ti, "forward request")
+				p.moduleLogger.Debugf("forward request")
 			}
 			clientChannel.conn.setTimeout(-p.config.conf.IdleTimeout)
 			proxyChannel.conn.setTimeout(-p.config.conf.IdleTimeout)
 			if !clientChannel.header.directToConnect {
 				err = p.forwardRequest(clientChannel, proxyChannel, *firstProxy.Type, authorization)
 				if err != nil {
-					logError("%s => forward: %#s", p.logLine, err)
+					p.requestLogger.Errorf("%s => forward: %#s", p.logLine, err)
 					return p.closeChannels(clientChannel, proxyChannel)
 				}
 			} else {
 				err = p.forwardConnect(clientChannel, proxyChannel, *firstProxy.Type, authorization)
 				if err != nil {
-					logError("%s => forward: %#s", p.logLine, err)
+					p.requestLogger.Errorf("%s => forward: %#s", p.logLine, err)
 					return p.closeChannels(clientChannel, proxyChannel)
 				}
 				if debug {
@@ -332,21 +323,21 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 				proxyChannel.conn.setTimeout(p.config.conf.IdleTimeout)
 				err = proxyChannel.readResponseHeaders()
 				if err != nil {
-					logError("%s => forward: %#s", p.logLine, err)
+					p.requestLogger.Errorf("%s => forward: %#s", p.logLine, err)
 					return p.closeChannels(clientChannel, proxyChannel)
 				}
 				if strings.ToLower(proxyChannel.header.reason) != "connection established" {
 					err = errors.New("connection not established")
-					logError("%s => forward: %#s", p.logLine, err)
+					p.requestLogger.Errorf("%s => forward: %#s", p.logLine, err)
 					return p.closeChannels(clientChannel, proxyChannel)
 				}
 				if debug {
 					proxyChannel.prefix = fmt.Sprintf("%s P>", p.logPrefix)
 				}
-				proxyChannel.conn = NewTimedConn(tls.Client(proxyChannel.conn.conn, &tls.Config{ServerName: clientChannel.header.host}), newTraceInfo(p.reqId, "proxy"))
+				proxyChannel.conn = NewTimedConn(tls.Client(proxyChannel.conn.conn, &tls.Config{ServerName: clientChannel.header.host}), log.NewModuleLogger(p.reqId, "proxy", _logger))
 				err = p.forwardRequest(clientChannel, proxyChannel, *firstProxy.Type, authorization)
 				if err != nil {
-					logError("%s => forward: %#s", p.logLine, err)
+					p.requestLogger.Errorf("%s => forward: %#s", p.logLine, err)
 					return p.closeChannels(clientChannel, proxyChannel)
 				}
 			}
@@ -354,7 +345,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 
 		// read response headers
 		if trace {
-			logTrace(p.ti, "read response")
+			p.moduleLogger.Debugf("read response")
 		}
 		if debug {
 			proxyChannel.prefix = fmt.Sprintf("%s P<", p.logPrefix)
@@ -368,14 +359,14 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 			if err != nil {
 				retryable--
 				if err == io.EOF && retryable > 0 {
-					logError("%s => %#s", p.logLine, stacktrace.NewError("Remote connection closed, retrying"))
+					p.requestLogger.Errorf("%s => %#s", p.logLine, stacktrace.NewError("Remote connection closed, retrying"))
 					p.closeChannel(proxyChannel)
 					proxyChannel = nil
 					continue
 				} else if err == io.EOF {
-					logError("%s => %#s", p.logLine, stacktrace.NewError("Remote connection closed"))
+					p.requestLogger.Errorf("%s => %#s", p.logLine, stacktrace.NewError("Remote connection closed"))
 				} else {
-					logError("%s => response: %#s", p.logLine, err)
+					p.requestLogger.Errorf("%s => response: %#s", p.logLine, err)
 				}
 				_ = clientChannel.badRequest()
 				return p.closeChannels(clientChannel, proxyChannel)
@@ -392,7 +383,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 
 	// forward response to client
 	if trace {
-		logTrace(p.ti, "forward response")
+		p.moduleLogger.Debugf("forward response")
 	}
 	clientChannel.conn.setTimeout(-p.config.conf.IdleTimeout)
 	proxyChannel.conn.setTimeout(-p.config.conf.IdleTimeout)
@@ -405,7 +396,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 	// man-in-the-middle: decode https flows
 	if clientChannel.header.isConnect && rule.Mitm && (mitmProxy || mitmClient) {
 		if trace {
-			logTrace(p.ti, "mitm hijacking")
+			p.moduleLogger.Debugf("mitm hijacking")
 		}
 		// convert client connexion to a tls server
 		if mitmClient {
@@ -443,14 +434,10 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 				break
 			}
 			p.computeLog(clientChannel, rule, firstProxy, firstHostPort)
-			if p.verbose {
-				logInfo("%s", p.logLine)
-			}
-			if debug {
-				prefix := fmt.Sprintf("%s C<", p.logPrefix)
-				for _, header := range clientChannel.header.headers {
-					logHeader("%s %s", prefix, header)
-				}
+			p.requestLogger.Infof("%s", p.logLine)
+			prefix := fmt.Sprintf("%s C<", p.logPrefix)
+			for _, header := range clientChannel.header.headers {
+				p.requestLogger.Debugf("%s %s", prefix, sanitizeHeader(header))
 			}
 			err = p.forwardRequest(clientChannel, proxyChannel, *firstProxy.Type, nil)
 			if err != nil {
@@ -473,7 +460,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 	// treat CONNECT as a forever duplex pipe
 	if clientChannel.header.isConnect || proxyChannel.header.status == 100 {
 		if trace {
-			logTrace(p.ti, "duplex pipe forever")
+			p.moduleLogger.Debugf("duplex pipe forever")
 		}
 		// automatically close connection after long inactivity
 		clientChannel.conn.setTimeout(-p.config.conf.IdleTimeout)
@@ -530,7 +517,7 @@ func (p *Process) computeLog(channel *ProxyRequest, rule *ConfRule, proxy *ConfP
 	}
 	// compute log line
 	p.logName = name
-	p.logPrefix = fmt.Sprintf("(%d) [%s]", p.reqId, name)
+	p.logPrefix = fmt.Sprintf("[%s]", name)
 	p.logLine = fmt.Sprintf("%s %s %s HTTP/%s", p.logPrefix, channel.header.method, channel.header.originalUrl, channel.header.version)
 	p.logTraffic = fmt.Sprintf("%s %s %s HTTP/%s", name, channel.header.method, channel.header.originalUrl, channel.header.version)
 	if channel.header.hostEmpty {
@@ -566,7 +553,7 @@ func (p *Process) webServer(channel *ProxyRequest) error {
 
 func (p *Process) closeChannels(clientChannel, proxyChannel *ProxyRequest) *ProxyRequest {
 	if trace {
-		logTrace(p.ti, "close channels")
+		p.moduleLogger.Debugf("close channels")
 	}
 	p.closeChannel(clientChannel)
 	p.closeChannel(proxyChannel)
@@ -807,9 +794,7 @@ func (p *Process) findFirstProxy(rule *ConfRule, proxies []*ConfProxy) (*ConfPro
 				checkConn, err := dialer.Dial("tcp4", hostPort)
 				if err != nil {
 					// on failure, try next host
-					if debug {
-						logInfo("[%s] Host %s: %v", *proxy.name, hostPort, err)
-					}
+					p.requestLogger.Debugf("[%s] Host %s: %v", *proxy.name, hostPort, err)
 					continue
 				}
 				ConfigureConn(checkConn)
@@ -832,14 +817,10 @@ func (p *Process) findFirstProxy(rule *ConfRule, proxies []*ConfProxy) (*ConfPro
 				}
 				if debug {
 					if pi > 0 || (pl.IsZero() && len(sortedProxies) > 1) {
-						if debug {
-							logInfo("[%s] Now using proxy %s", p.proxyShortName(*rule.Proxy), *proxy.name)
-						}
+						p.requestLogger.Debugf("[%s] Now using proxy %s", p.proxyShortName(*rule.Proxy), *proxy.name)
 					}
 					if hi > 0 || (hl.IsZero() && len(hosts) > 1) {
-						if debug {
-							logInfo("[%s] Now using host %s", *proxy.name, host)
-						}
+						p.requestLogger.Debugf("[%s] Now using host %s", *proxy.name, host)
 					}
 				}
 				// set firstProxy
@@ -871,7 +852,7 @@ func (p *Process) computeAuthPerUser(firstProxy *ConfProxy, proxyAuthorization *
 							// hide error, as this is not an unrecoverable error
 							auth, err := p.proxy.generateKerberosNegotiate(username, realm, password, protocol, host)
 							if err != nil {
-								logError("%s Failed to generate authenticate token: %v", p.logPrefix, err)
+								p.requestLogger.Errorf("%s Failed to generate authenticate token: %v", p.logPrefix, err)
 							}
 							return auth, nil
 						}
@@ -913,7 +894,7 @@ func (p *Process) computeAuthPerConf(firstProxy *ConfProxy) (bool, string, func(
 				// don't hide error, this is an unrecoverable error
 				auth, err := p.proxy.generateKerberosNegotiate(username, realm, password, protocol, host)
 				if err != nil {
-					logError("%s Failed to generate authenticate token: %v", p.logPrefix, err)
+					p.requestLogger.Errorf("%s Failed to generate authenticate token: %v", p.logPrefix, err)
 					return nil, err
 				}
 				return auth, nil
@@ -927,7 +908,7 @@ func (p *Process) computeAuthPerConf(firstProxy *ConfProxy) (bool, string, func(
 				// don't hide error, this is an unrecoverable error
 				auth, err := p.proxy.generateKerberosNative(protocol, host)
 				if err != nil {
-					logError("%s Failed to generate authenticate token: %v", p.logPrefix, err)
+					p.requestLogger.Errorf("%s Failed to generate authenticate token: %v", p.logPrefix, err)
 					return nil, err
 				}
 				return auth, nil
@@ -961,7 +942,7 @@ func (p *Process) processSocks(request *socks5.Request) {
 	var err error
 
 	if trace {
-		logTrace(p.ti, "start process")
+		p.moduleLogger.Debugf("start process")
 	}
 
 	// find matching rule and proxy
@@ -976,12 +957,10 @@ func (p *Process) processSocks(request *socks5.Request) {
 		firstHostPort = requestHostPort
 	}
 
-	if trace {
-		if firstProxy != nil {
-			logTrace(p.ti, "proxy matched '%s'", proxyName)
-		} else {
-			logTrace(p.ti, "no proxy matched")
-		}
+	if firstProxy != nil {
+		p.moduleLogger.Tracef("proxy matched '%s'", proxyName)
+	} else {
+		p.moduleLogger.Tracef("no proxy matched")
 	}
 
 	// verbosity
@@ -996,9 +975,7 @@ func (p *Process) processSocks(request *socks5.Request) {
 	p.verbose = verbose
 
 	// verbose log
-	if p.verbose {
-		logInfo("[%s] socks %s => %s", proxyName, requestHostPort, firstHostPort)
-	}
+	p.requestLogger.Infof("[%s] socks %s => %s", proxyName, requestHostPort, firstHostPort)
 
 	// if no proxy, just throw away the request
 	if rule == nil || firstProxy == nil || *firstProxy.Type == ProxyNone {
@@ -1014,7 +991,7 @@ func (p *Process) processSocks(request *socks5.Request) {
 
 	if authentication {
 		if trace {
-			logTrace(p.ti, "authentication")
+			p.moduleLogger.Debugf("authentication")
 		}
 		var authenticated bool
 		authenticated, _, authorizationFunc = p.computeAuthPerConf(firstProxy)
@@ -1027,14 +1004,15 @@ func (p *Process) processSocks(request *socks5.Request) {
 	// allow 3 retries, creating a new remote connection each time
 	retryable := 3
 	clientChannel := &ProxyRequest{
-		conn: p.conn,
+		conn:      p.conn,
+		reqLogger: p.requestLogger,
 	}
 	var proxyChannel *ProxyRequest
 	// if connection from pool
 	// try up to retryable connections
 	for {
 		if trace {
-			logTrace(p.ti, "start connection (retryable=%d)", retryable)
+			p.moduleLogger.Debugf("start connection (retryable=%d)", retryable)
 		}
 		var conn net.Conn
 		dialer := new(net.Dialer)
@@ -1079,7 +1057,7 @@ func (p *Process) processSocks(request *socks5.Request) {
 		}
 		// if err == nil and pi>0 or pj>0, update last usage
 		if err != nil {
-			logError("[%s] socks %s => %s: dial %#s", proxyName, requestHostPort, firstHostPort, err)
+			p.requestLogger.Errorf("[%s] socks %s => %s: dial %#s", proxyName, requestHostPort, firstHostPort, err)
 			retryable--
 			if retryable > 0 {
 				continue
@@ -1089,7 +1067,7 @@ func (p *Process) processSocks(request *socks5.Request) {
 		//
 		ConfigureConn(conn)
 		proxyChannel = &ProxyRequest{
-			conn: NewTimedConn(conn, newTraceInfo(p.reqId, "proxy")),
+			conn: NewTimedConn(conn, log.NewModuleLogger(p.reqId, "proxy", _logger)),
 		}
 		break
 	}
@@ -1102,5 +1080,21 @@ func (p *Process) processSocks(request *socks5.Request) {
 	go p.pipe(proxyChannel, clientChannel, &finished)
 	// wait for both copy to finish
 	finished.Wait()
-	return
+}
+
+func sanitizeHeader(header string) string {
+	lower := strings.ToLower(header)
+	if strings.HasPrefix(lower, "proxy-authorization:") {
+		l := len(header)
+		if l-10 > 50 {
+			l = 50
+		} else {
+			l = l - 10
+			if l < 20 {
+				l = 20
+			}
+		}
+		header = header[:l] + "..."
+	}
+	return header
 }

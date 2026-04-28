@@ -4,16 +4,17 @@ package kpx
 
 import (
 	"encoding/base64"
-	"github.com/jcmturner/gokrb5/v8/client"
-	"github.com/jcmturner/gokrb5/v8/config"
-	"github.com/jcmturner/gokrb5/v8/credentials"
-	"github.com/jcmturner/gokrb5/v8/spnego"
-	"github.com/palantir/stacktrace"
 	"net"
 	"os"
 	"os/user"
 	"strings"
 	"sync"
+
+	"github.com/jcmturner/gokrb5/v8/client"
+	"github.com/jcmturner/gokrb5/v8/config"
+	"github.com/jcmturner/gokrb5/v8/credentials"
+	"github.com/jcmturner/gokrb5/v8/spnego"
+	"github.com/palantir/stacktrace"
 )
 
 var NativeKerberos = &LinuxKerberos{}
@@ -28,7 +29,7 @@ func (k *LinuxKerberos) SafeTryLogin() error {
 		return nil
 	}
 
-	logInfo("[-] Authenticating user with Linux native kerberos")
+	_logger.Infof("[-] Authenticating user with Linux native kerberos")
 
 	var err error
 

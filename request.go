@@ -2,12 +2,14 @@ package kpx
 
 import (
 	"fmt"
-	"github.com/palantir/stacktrace"
 	"io"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/momiji/kpx/log"
+	"github.com/palantir/stacktrace"
 )
 
 const CT_PLAIN_UTF8 = "text/plain; charset=UTF-8"
@@ -18,9 +20,9 @@ type ProxyRequest struct {
 	// input / output streams
 	conn *TimedConn
 	// headers stream, with already read data
-	header *RequestHeader
-	// verbose
-	prefix string
+	header    *RequestHeader
+	prefix    string             // prefix for logging, with request id and direction (C> for client to proxy, P> for proxy to server)
+	reqLogger *log.RequestLogger // for logging, with request id and prefix
 }
 
 type RequestHeader struct {
@@ -40,7 +42,7 @@ type RequestHeader struct {
 	port            int         // port number
 	hostPort        string      // host with port number
 	hostEmpty       bool        // host from line is empty
-	directToConnect bool        // direct ue of proxy requires upgrade to CONNECT
+	directToConnect bool        // direct use of proxy requires upgrade to CONNECT
 	// response line
 	status int
 	reason string
@@ -87,21 +89,21 @@ func (hv HttpVersion) Order() int {
 	return -1
 }
 
-func (r *ProxyRequest) injectHeaders(headers []string) (*RequestHeader, error) {
-	if r.prefix != "" {
+func (pr *ProxyRequest) injectHeaders(headers []string) (*RequestHeader, error) {
+	if pr.prefix != "" {
 		for _, header := range headers {
-			logHeader("%s %s", r.prefix, header)
+			pr.reqLogger.Debugf("%s %s", pr.prefix, header)
 		}
 	}
 	h := make([]string, len(headers))
 	copy(h, headers)
 	d := make([]byte, 0)
 	rh := RequestHeader{headers: h, data: d}
-	r.header = &rh
-	return r.header, nil
+	pr.header = &rh
+	return pr.header, nil
 }
 
-func (r *ProxyRequest) ReadFull(buffer []byte) (int, error) {
+func (pr *ProxyRequest) ReadFull(buffer []byte) (int, error) {
 	var err error
 	length := 0
 	read := 0
@@ -109,7 +111,7 @@ func (r *ProxyRequest) ReadFull(buffer []byte) (int, error) {
 	found := 0
 	b := buffer
 	for {
-		read, err = r.conn.Read(b)
+		read, err = pr.conn.Read(b)
 		length += read
 		if err != nil {
 			return length, err // no wrap
@@ -130,7 +132,7 @@ func (r *ProxyRequest) ReadFull(buffer []byte) (int, error) {
 	}
 }
 
-func (r *ProxyRequest) readHeaders() (*RequestHeader, error) {
+func (pr *ProxyRequest) readHeaders() (*RequestHeader, error) {
 	// init header
 	h := RequestHeader{}
 	// read header bytes
@@ -139,7 +141,7 @@ func (r *ProxyRequest) readHeaders() (*RequestHeader, error) {
 	buffer := make([]byte, HEADER_MAX_SIZE)
 	headers := make([]string, 0, 32)
 	// read headers
-	readLen, err := r.ReadFull(buffer)
+	readLen, err := pr.ReadFull(buffer)
 	if err != nil {
 		if readLen == 0 || err == io.EOF {
 			return nil, io.EOF
@@ -158,8 +160,8 @@ func (r *ProxyRequest) readHeaders() (*RequestHeader, error) {
 			}
 			// otherwise this is a new header line
 			header := buffer[startLine:i]
-			if r.prefix != "" {
-				logHeader("%s %s", r.prefix, string(header))
+			if pr.prefix != "" {
+				pr.reqLogger.Debugf("%s %s", pr.prefix, string(header))
 			}
 			startLine = i + 2
 			headers = append(headers, string(header))
@@ -173,7 +175,7 @@ func (r *ProxyRequest) readHeaders() (*RequestHeader, error) {
 	h.headers = headers
 	h.data = buffer[startData:readLen]
 	h.startData = startData
-	r.header = &h
+	pr.header = &h
 	return &h, nil
 }
 
@@ -372,8 +374,8 @@ func (rh *RequestHeader) analyseHeaders(req bool) error {
 	return nil
 }
 
-func (r *ProxyRequest) readRequestHeaders() error {
-	rh, err := r.readHeaders()
+func (pr *ProxyRequest) readRequestHeaders() error {
+	rh, err := pr.readHeaders()
 	if err != nil {
 		return err // no wrap
 	}
@@ -388,8 +390,8 @@ func (r *ProxyRequest) readRequestHeaders() error {
 	return nil
 }
 
-func (r *ProxyRequest) readResponseHeaders() error {
-	rh, err := r.readHeaders()
+func (pr *ProxyRequest) readResponseHeaders() error {
+	rh, err := pr.readHeaders()
 	if err != nil {
 		return err // no wrap
 	}
@@ -404,8 +406,8 @@ func (r *ProxyRequest) readResponseHeaders() error {
 	return nil
 }
 
-func (r *ProxyRequest) injectResponseHeaders(headers []string) error {
-	rh, err := r.injectHeaders(headers)
+func (pr *ProxyRequest) injectResponseHeaders(headers []string) error {
+	rh, err := pr.injectHeaders(headers)
 	if err != nil {
 		return err // no wrap
 	}
@@ -420,8 +422,8 @@ func (r *ProxyRequest) injectResponseHeaders(headers []string) error {
 	return nil
 }
 
-func (r *ProxyRequest) findHeader(s string) *string {
-	for _, header := range r.header.headers {
+func (pr *ProxyRequest) findHeader(s string) *string {
+	for _, header := range pr.header.headers {
 		kv := strings.SplitN(header, ":", 2)
 		if strings.ToLower(kv[0]) == strings.ToLower(s) {
 			val := strings.TrimSpace(kv[1])
@@ -431,100 +433,100 @@ func (r *ProxyRequest) findHeader(s string) *string {
 	return nil
 }
 
-func (r ProxyRequest) writeStatusLine(version HttpVersion, status int, reason string) error {
-	return r.writeHeaderLine(fmt.Sprintf("HTTP/%s %d %s", version.Version(), status, reason))
+func (pr ProxyRequest) writeStatusLine(version HttpVersion, status int, reason string) error {
+	return pr.writeHeaderLine(fmt.Sprintf("HTTP/%s %d %s", version.Version(), status, reason))
 }
 
-func (r ProxyRequest) writeDateHeader() error {
-	return r.writeHeader("Date", time.Now().Format(time.RFC1123))
+func (pr ProxyRequest) writeDateHeader() error {
+	return pr.writeHeader("Date", time.Now().Format(time.RFC1123))
 }
 
-func (r ProxyRequest) writeHeader(key, val string) error {
-	return r.writeHeaderLine(fmt.Sprintf("%s: %s", key, val))
+func (pr ProxyRequest) writeHeader(key, val string) error {
+	return pr.writeHeaderLine(fmt.Sprintf("%s: %s", key, val))
 }
 
-func (r ProxyRequest) writeKeepAlive(keepAlive bool, isProxy bool) error {
+func (pr ProxyRequest) writeKeepAlive(keepAlive bool, isProxy bool) error {
 	header := "Connection"
 	if isProxy {
 		header = "Proxy-Connection"
 	}
 	if keepAlive {
-		return r.writeHeader(header, "keep-alive")
+		return pr.writeHeader(header, "keep-alive")
 	} else {
-		return r.writeHeader(header, "close")
+		return pr.writeHeader(header, "close")
 	}
 }
 
-func (r ProxyRequest) closeHeader() error {
-	return r.writeHeaderLine("")
+func (pr ProxyRequest) closeHeader() error {
+	return pr.writeHeaderLine("")
 }
 
-func (r ProxyRequest) writeContent(content string, keepAlive bool, contentType string) error {
-	err := r.writeHeader("Content-Length", strconv.Itoa(len(content)))
+func (pr ProxyRequest) writeContent(content string, keepAlive bool, contentType string) error {
+	err := pr.writeHeader("Content-Length", strconv.Itoa(len(content)))
 	if err != nil {
 		return err // no wrap
 	}
-	err = r.writeHeader("Content-Type", contentType)
+	err = pr.writeHeader("Content-Type", contentType)
 	if err != nil {
 		return err // no wrap
 	}
-	err = r.writeKeepAlive(keepAlive, false)
+	err = pr.writeKeepAlive(keepAlive, false)
 	if err != nil {
 		return err // no wrap
 	}
-	err = r.closeHeader()
-	_, err = r.conn.Write([]byte(content))
+	err = pr.closeHeader()
+	_, err = pr.conn.Write([]byte(content))
 	return err // no wrap
 }
 
-func (r ProxyRequest) badRequest() error {
-	err := r.writeStatusLine(Http10, 400, "Bad Request")
+func (pr ProxyRequest) badRequest() error {
+	err := pr.writeStatusLine(Http10, 400, "Bad Request")
 	if err != nil {
 		return err // no wrap
 	}
-	err = r.writeDateHeader()
+	err = pr.writeDateHeader()
 	if err != nil {
 		return err // no wrap
 	}
-	return r.writeContent("Bad Request\n", false, CT_PLAIN_UTF8)
+	return pr.writeContent("Bad Request\n", false, CT_PLAIN_UTF8)
 }
 
-func (r ProxyRequest) notFound() error {
-	err := r.writeStatusLine(Http10, 404, "Not Found")
+func (pr ProxyRequest) notFound() error {
+	err := pr.writeStatusLine(Http10, 404, "Not Found")
 	if err != nil {
 		return err // no wrap
 	}
-	err = r.writeDateHeader()
+	err = pr.writeDateHeader()
 	if err != nil {
 		return err // no wrap
 	}
-	return r.writeContent("Not Found\n", false, CT_PLAIN_UTF8)
+	return pr.writeContent("Not Found\n", false, CT_PLAIN_UTF8)
 }
 
-func (r *ProxyRequest) requireAuth(proxy string) error {
-	err := r.writeStatusLine(Http10, 407, "Proxy Authentication Required")
+func (pr *ProxyRequest) requireAuth(proxy string) error {
+	err := pr.writeStatusLine(Http10, 407, "Proxy Authentication Required")
 	if err != nil {
 		return err // no wrap
 	}
-	err = r.writeDateHeader()
+	err = pr.writeDateHeader()
 	if err != nil {
 		return err // no wrap
 	}
-	err = r.writeHeader("Proxy-Authenticate", fmt.Sprintf("Basic realm=\"Authentication required for '%s', use DOMAIN\\USERNAME or USERNAME@DOMAIN or USERNAME\"", proxy))
+	err = pr.writeHeader("Proxy-Authenticate", fmt.Sprintf("Basic realm=\"Authentication required for '%s', use DOMAIN\\USERNAME or USERNAME@DOMAIN or USERNAME\"", proxy))
 	if err != nil {
 		return err // no wrap
 	}
-	return r.writeContent("Proxy Authentication Required\n", false, CT_PLAIN_UTF8)
+	return pr.writeContent("Proxy Authentication Required\n", false, CT_PLAIN_UTF8)
 }
 
-func (r *ProxyRequest) writeRequestLine(method string, url string, version HttpVersion) error {
-	return r.writeHeaderLine(fmt.Sprintf("%s %s HTTP/%s", method, url, version.Version()))
+func (pr *ProxyRequest) writeRequestLine(method string, url string, version HttpVersion) error {
+	return pr.writeHeaderLine(fmt.Sprintf("%s %s HTTP/%s", method, url, version.Version()))
 }
 
-func (r *ProxyRequest) writeHeaderLine(line string) error {
-	if r.prefix != "" && line != "" {
-		logHeader("%s %s", r.prefix, line)
+func (pr *ProxyRequest) writeHeaderLine(line string) error {
+	if pr.prefix != "" && line != "" {
+		pr.reqLogger.Debugf("%s %s", pr.prefix, line)
 	}
-	_, err := r.conn.Write([]byte(fmt.Sprintf("%s\r\n", line)))
+	_, err := pr.conn.Write([]byte(fmt.Sprintf("%s\r\n", line)))
 	return err // no wrap
 }

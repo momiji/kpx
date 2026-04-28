@@ -1,88 +1,88 @@
-# Architecture modulaire — KPX v2
+# Modular Architecture — KPX v2
 
-## Contexte
+## Context
 
-KPX est un proxy HTTP/SOCKS authentifiant (Kerberos, Basic, SOCKS) avec rechargement de configuration à chaud, support du PAC JavaScript, génération de certificats TLS pour le MITM, et une interface TUI optionnelle.
+KPX is an authenticating HTTP/SOCKS proxy (Kerberos, Basic, SOCKS) with hot configuration reload, JavaScript PAC support, TLS certificate generation for MITM, and an optional TUI interface.
 
-### Problèmes de la structure actuelle
+### Problems with the current structure
 
-| Fichier | Lignes | Problème |
+| File | Lines | Problem |
 |---|---|---|
-| `config.go` | ~2500 | Fait tout : parsing, validation, génération PAC, génération certs, matching de règles |
-| `process.go` | ~2000 | Fait tout : boucle HTTP, authentification, tunneling CONNECT, serveur local |
-| `proxy.go` | ~800 | Mélange : serveur TCP, pool de connexions, rechargement, watchers |
-| Tous dans `package kpx` | — | Frontières invisibles, impossible de tester un composant en isolation |
+| `config.go` | ~2500 | Does everything: parsing, validation, PAC generation, cert generation, rule matching |
+| `process.go` | ~2000 | Does everything: HTTP loop, authentication, CONNECT tunneling, local server |
+| `proxy.go` | ~800 | Mixed: TCP server, connection pool, reload, watchers |
+| All in `package kpx` | — | Invisible boundaries, impossible to test a component in isolation |
 
 ---
 
-## Architecture cible
+## Target Architecture
 
-### Vue d'ensemble
+### Overview
 
 ```
 kpx/
-├── main.go                    # Point d'entrée (< 20 lignes)
-├── global.go                  # Constantes globales, Options CLI
+├── main.go                    # Entry point (< 20 lines)
+├── global.go                  # Global constants, CLI Options
 │
-├── config/                    # Chargement et validation de la configuration
-│   ├── config.go              # Types Config, Conf, loaders (YAML/CLI)
-│   ├── rule.go                # Matching de règles (matchHttp, matchSocks, HostCache)
-│   ├── validate.go            # Validation et construction (check, build)
-│   └── pac_gen.go             # Génération du fichier proxy.pac
+├── config/                    # Configuration loading and validation
+│   ├── config.go              # Config, Conf types, loaders (YAML/CLI)
+│   ├── rule.go                # Rule matching (matchHttp, matchSocks, HostCache)
+│   ├── validate.go            # Validation and construction (check, build)
+│   └── pac_gen.go             # proxy.pac file generation
 │
-├── proxy/                     # Serveur proxy et cycle de vie
-│   ├── proxy.go               # Struct Proxy, start(), stop()
-│   ├── reload.go              # Rechargement à chaud (watch1, watch2, reload)
-│   └── pool.go                # Pool de connexions upstream (connPool)
+├── proxy/                     # Proxy server and lifecycle
+│   ├── proxy.go               # Proxy struct, start(), stop()
+│   ├── reload.go              # Hot reload (watch1, watch2, reload)
+│   └── pool.go                # Upstream connection pool (connPool)
 │
-├── handler/                   # Traitement des requêtes (pipeline)
-│   ├── process.go             # Struct Process, boucle principale processHttp()
-│   ├── http.go                # Traitement HTTP standard (processChannel)
-│   ├── connect.go             # Tunnel CONNECT / HTTPS (processConnect)
-│   └── local.go               # Serveur web local (/proxy.pac, /status)
+├── handler/                   # Request processing (pipeline)
+│   ├── process.go             # Process struct, main loop processHttp()
+│   ├── http.go                # Standard HTTP processing (processChannel)
+│   ├── connect.go             # CONNECT tunnel / HTTPS (processConnect)
+│   └── local.go               # Local web server (/proxy.pac, /status)
 │
-├── auth/                      # Authentification upstream
-│   ├── auth.go                # Interface Authenticator
-│   ├── kerberos.go            # Auth Kerberos (SPNEGO/Negotiate)
-│   ├── basic.go               # Auth Basic (base64)
-│   └── store.go               # KerberosStore : gestion multi-clients Kerberos
+├── auth/                      # Upstream authentication
+│   ├── auth.go                # Authenticator interface
+│   ├── kerberos.go            # Kerberos auth (SPNEGO/Negotiate)
+│   ├── basic.go               # Basic auth (base64)
+│   └── store.go               # KerberosStore: multi-client Kerberos management
 │
-├── transport/                 # Couche réseau bas niveau
+├── transport/                 # Low-level network layer
 │   ├── conn.go                # TimedConn, CloseAwareConn
-│   └── chunked.go             # chunkedReader (décodage chunked HTTP)
+│   └── chunked.go             # chunkedReader (HTTP chunked decoding)
 │
-├── cert/                      # Gestion des certificats TLS
-│   ├── cert.go                # Génération de certificats (RSA, X.509)
-│   └── manager.go             # CertsManager : cache et wildcards
+├── cert/                      # TLS certificate management
+│   ├── cert.go                # Certificate generation (RSA, X.509)
+│   └── manager.go             # CertsManager: cache and wildcards
 │
-├── pac/                       # Exécution de fichiers PAC (JavaScript)
-│   └── pac.go                 # PacExecutor, pool de runtimes goja
+├── pac/                       # PAC file execution (JavaScript)
+│   └── pac.go                 # PacExecutor, pool of goja runtimes
 │
-├── crypto/                    # Chiffrement des mots de passe
-│   └── crypto.go              # AES-GCM, gestion du fichier .key
+├── crypto/                    # Password encryption
+│   └── crypto.go              # AES-GCM, .key file management
 │
 ├── log/                       # Logging
-│   └── log.go                 # Init, niveaux, masquage des headers sensibles
+│   └── log.go                 # Init, levels, sensitive header masking
 │
-├── util/                      # Utilitaires partagés
-│   └── mre.go                 # ManualResetEvent (synchronisation goroutines)
+├── util/                      # Shared utilities
+│   └── mre.go                 # ManualResetEvent (goroutine synchronization)
 │
-├── ui/                        # Interface TUI / console (existant)
+├── ui/                        # TUI / console interface (existing)
 │   ├── ui.go
 │   ├── ui_data.go
 │   ├── ui_tui.go
 │   └── ui_tconsole.go
 │
-└── term/                      # Abstraction terminal (existant)
+└── term/                      # Terminal abstraction (existing)
 ```
 
 ---
 
-## Description des modules
+## Module Descriptions
 
 ### `config/` — Configuration
 
-**Responsabilité unique** : charger, valider et exposer la configuration.
+**Single responsibility**: load, validate, and expose configuration.
 
 ```go
 // config/config.go
@@ -90,8 +90,8 @@ package config
 
 type Config struct {
     Conf       *Conf
-    PacCache   *pac.PacExecutor    // injecté après build
-    CertMgr    *cert.CertsManager  // injecté après build
+    PacCache   *pac.PacExecutor    // injected after build
+    CertMgr    *cert.CertsManager  // injected after build
     HostsCache sync.Map
 }
 
@@ -105,8 +105,8 @@ type Conf struct {
     // ...
 }
 
-func Load(path string) (*Config, error)       // depuis fichier
-func LoadFromOptions(opts *Options) (*Config, error) // depuis CLI
+func Load(path string) (*Config, error)              // from file
+func LoadFromOptions(opts *Options) (*Config, error) // from CLI
 ```
 
 ```go
@@ -125,13 +125,13 @@ func (c *Config) Validate() error
 func (c *Config) Build() error
 ```
 
-**Ce qui sort de config.go actuel** : la génération PAC va dans `config/pac_gen.go`, la génération de certs va dans `cert/`, le matching va dans `config/rule.go`.
+**What moves out of the current config.go**: PAC generation goes to `config/pac_gen.go`, cert generation goes to `cert/`, rule matching goes to `config/rule.go`.
 
 ---
 
-### `proxy/` — Serveur et cycle de vie
+### `proxy/` — Server and Lifecycle
 
-**Responsabilité** : écouter les connexions entrantes, gérer le rechargement de config.
+**Responsibility**: listen for incoming connections, manage config reload.
 
 ```go
 // proxy/proxy.go
@@ -156,7 +156,7 @@ package proxy
 
 type ConnPool struct {
     mu    sync.Mutex
-    conns map[string]*list.List  // clé: nom du proxy upstream
+    conns map[string]*list.List  // key: upstream proxy name
 }
 
 func (cp *ConnPool) Get(proxy string) (net.Conn, bool)
@@ -166,9 +166,9 @@ func (cp *ConnPool) Evict(proxy string)
 
 ---
 
-### `handler/` — Pipeline de traitement
+### `handler/` — Processing Pipeline
 
-**Responsabilité** : traiter une connexion cliente de bout en bout.
+**Responsibility**: handle a client connection end-to-end.
 
 ```go
 // handler/process.go
@@ -190,33 +190,33 @@ func (p *Process) Run()
 // handler/http.go
 package handler
 
-// Traitement d'une requête HTTP simple
+// Handles a simple HTTP request
 func (p *Process) handleRequest(req *request.ProxyRequest) error
 
 // handler/connect.go
-// Tunnel CONNECT
+// CONNECT tunnel
 func (p *Process) handleConnect(req *request.ProxyRequest) error
 
 // handler/local.go
-// Serveur local (/proxy.pac, /status, /reload)
+// Local server (/proxy.pac, /status, /reload)
 func (p *Process) handleLocal(req *request.ProxyRequest) error
 ```
 
 ---
 
-### `auth/` — Authentification
+### `auth/` — Authentication
 
-**Responsabilité** : abstraire les mécanismes d'authentification upstream.
+**Responsibility**: abstract upstream authentication mechanisms.
 
 ```go
 // auth/auth.go
 package auth
 
-// Interface commune à tous les mécanismes
+// Common interface for all mechanisms
 type Authenticator interface {
-    // Calcule la valeur du header Proxy-Authorization
+    // Computes the Proxy-Authorization header value
     Authorize(req *http.Request, challenge string) (string, error)
-    // Nom du schéma (Negotiate, Basic, ...)
+    // Scheme name (Negotiate, Basic, ...)
     Scheme() string
 }
 
@@ -227,7 +227,7 @@ func New(proxy *config.ConfProxy, cred *config.ConfCred) (Authenticator, error)
 // auth/store.go
 package auth
 
-// Gère les clients Kerberos (login natif OS ou user/password)
+// Manages Kerberos clients (native OS login or user/password)
 type Store struct {
     mu      sync.Mutex
     clients map[string]*KerberosClient
@@ -240,16 +240,16 @@ func (s *Store) LoadNative(conf *config.Config) error
 
 ---
 
-### `transport/` — Couche réseau
+### `transport/` — Network Layer
 
-**Responsabilité** : abstractions réseau réutilisables.
+**Responsibility**: reusable network abstractions.
 
 ```go
 // transport/conn.go
 package transport
 
 type TimedConn struct { /* net.Conn + timeouts */ }
-type CloseAwareConn struct { /* détection fermeture distante */ }
+type CloseAwareConn struct { /* remote close detection */ }
 
 func NewTimed(conn net.Conn, timeout time.Duration) *TimedConn
 func NewCloseAware(conn net.Conn) *CloseAwareConn
@@ -258,9 +258,9 @@ func Configure(conn net.Conn) error  // TCP_NODELAY
 
 ---
 
-### `cert/` — Certificats TLS
+### `cert/` — TLS Certificates
 
-**Responsabilité** : génération et cache de certificats X.509.
+**Responsibility**: X.509 certificate generation and caching.
 
 ```go
 // cert/cert.go
@@ -289,9 +289,9 @@ func (m *Manager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, 
 
 ---
 
-### `pac/` — PAC JavaScript
+### `pac/` — JavaScript PAC
 
-**Responsabilité** : compiler et exécuter des fichiers PAC.
+**Responsibility**: compile and execute PAC files.
 
 ```go
 // pac/pac.go
@@ -308,9 +308,9 @@ func (e *Executor) Run(url, host string) (string, error)
 
 ---
 
-### `crypto/` — Chiffrement
+### `crypto/` — Encryption
 
-**Responsabilité** : chiffrer/déchiffrer les mots de passe de la config.
+**Responsibility**: encrypt/decrypt config passwords.
 
 ```go
 // crypto/crypto.go
@@ -319,12 +319,12 @@ package crypto
 func Encrypt(password string) (string, error)
 func Decrypt(encoded string) (string, error)
 func IsEncrypted(s string) bool
-func InteractiveEncrypt() error  // CLI interactif
+func InteractiveEncrypt() error  // interactive CLI
 ```
 
 ---
 
-### `util/` — Utilitaires
+### `util/` — Utilities
 
 ```go
 // util/mre.go
@@ -341,71 +341,71 @@ func (e *ManualResetEvent) WaitContext(ctx context.Context) error
 
 ---
 
-## Diagramme de dépendances
+## Dependency Diagram
 
 ```
 main.go
   └── proxy/proxy.go
-        ├── config/           (chargement + matching)
-        │     ├── pac/        (génération proxy.pac)
-        │     └── cert/       (génération certificats)
-        ├── handler/          (traitement requêtes)
-        │     ├── auth/       (authentification upstream)
-        │     ├── transport/  (connexions réseau)
-        │     ├── config/     (règles, lookup)
-        │     └── ui/         (stats trafic)
-        ├── auth/store        (sessions Kerberos)
-        ├── crypto/           (déchiffrement mots de passe)
+        ├── config/           (loading + matching)
+        │     ├── pac/        (proxy.pac generation)
+        │     └── cert/       (certificate generation)
+        ├── handler/          (request processing)
+        │     ├── auth/       (upstream authentication)
+        │     ├── transport/  (network connections)
+        │     ├── config/     (rules, lookup)
+        │     └── ui/         (traffic stats)
+        ├── auth/store        (Kerberos sessions)
+        ├── crypto/           (password decryption)
         ├── log/              (logging)
-        └── util/             (MRE, synchronisation)
+        └── util/             (MRE, synchronization)
 
-ui/     ← aucune dépendance vers kpx (sens unique)
-term/   ← aucune dépendance vers kpx (sens unique)
+ui/     ← no dependency toward kpx (one-way)
+term/   ← no dependency toward kpx (one-way)
 ```
 
-**Règle fondamentale** : les dépendances vont toujours vers le bas. `handler` connaît `config` et `auth`, mais `config` ne connaît pas `handler`.
+**Fundamental rule**: dependencies always flow downward. `handler` knows about `config` and `auth`, but `config` does not know about `handler`.
 
 ---
 
-## Stratégie de migration
+## Migration Strategy
 
-La migration se fait **fichier par fichier**, dans cet ordre de priorité :
+Migration happens **file by file**, in this priority order:
 
-### Phase 1 — Fondations (aucun risque)
-1. `util/mre.go` ← extraire `mre.go`
-2. `transport/conn.go` ← extraire `conn.go`
-3. `transport/chunked.go` ← extraire `chunked.go`
-4. `crypto/crypto.go` ← extraire `password.go`
-5. `log/log.go` ← extraire `log.go`
+### Phase 1 — Foundations (no risk)
+1. `util/mre.go` ← extract `mre.go`
+2. `transport/conn.go` ← extract `conn.go`
+3. `transport/chunked.go` ← extract `chunked.go`
+4. `crypto/crypto.go` ← extract `password.go`
+5. `log/log.go` ← extract `log.go`
 
-### Phase 2 — Domaines isolés
-6. `pac/pac.go` ← extraire `pac.go`
-7. `cert/cert.go` + `cert/manager.go` ← extraire `certs.go` + `certs_manager.go`
-8. `auth/kerberos.go` + `auth/store.go` ← extraire `kerberos.go` + `kerberos_store.go`
-9. `auth/basic.go` ← extraire la logique Basic de `process.go`
+### Phase 2 — Isolated Domains
+6. `pac/pac.go` ← extract `pac.go`
+7. `cert/cert.go` + `cert/manager.go` ← extract `certs.go` + `certs_manager.go`
+8. `auth/kerberos.go` + `auth/store.go` ← extract `kerberos.go` + `kerberos_store.go`
+9. `auth/basic.go` ← extract Basic logic from `process.go`
 
-### Phase 3 — Configuration (travail principal)
-10. `config/rule.go` ← extraire `matchHttp`, `matchSocks`, `HostCache` de `config.go`
-11. `config/validate.go` ← extraire `check()`, `build()` de `config.go`
-12. `config/pac_gen.go` ← extraire `genPac()` de `config.go`
-13. `config/config.go` ← ce qui reste
+### Phase 3 — Configuration (main work)
+10. `config/rule.go` ← extract `matchHttp`, `matchSocks`, `HostCache` from `config.go`
+11. `config/validate.go` ← extract `check()`, `build()` from `config.go`
+12. `config/pac_gen.go` ← extract `genPac()` from `config.go`
+13. `config/config.go` ← whatever remains
 
-### Phase 4 — Handler (travail principal)
-14. `handler/local.go` ← extraire `webServer()` de `process.go`
-15. `handler/connect.go` ← extraire `processConnect()` de `process.go`
-16. `handler/http.go` ← extraire `processChannel()` de `process.go`
-17. `handler/process.go` ← ce qui reste de `process.go`
+### Phase 4 — Handler (main work)
+14. `handler/local.go` ← extract `webServer()` from `process.go`
+15. `handler/connect.go` ← extract `processConnect()` from `process.go`
+16. `handler/http.go` ← extract `processChannel()` from `process.go`
+17. `handler/process.go` ← whatever remains of `process.go`
 
 ### Phase 5 — Proxy
-18. `proxy/pool.go` ← extraire `connPool` de `proxy.go`
-19. `proxy/reload.go` ← extraire `watch1`, `watch2`, `reload` de `proxy.go`
-20. `proxy/proxy.go` ← ce qui reste de `proxy.go`
+18. `proxy/pool.go` ← extract `connPool` from `proxy.go`
+19. `proxy/reload.go` ← extract `watch1`, `watch2`, `reload` from `proxy.go`
+20. `proxy/proxy.go` ← whatever remains of `proxy.go`
 
 ---
 
 ## Conventions
 
-- Chaque package expose une API publique minimale ; les détails d'implémentation restent non exportés.
-- Les tests unitaires se placent dans le même package (`_test.go`), les tests d'intégration dans `tests/`.
-- Les types de configuration (`ConfProxy`, `ConfRule`, etc.) restent dans `config/` et sont référencés par les autres packages — éviter la duplication.
-- `global.go` (constantes, `Options`) reste à la racine le temps que la migration CLI soit clarifiée, puis migre vers `cmd/`.
+- Each package exposes a minimal public API; implementation details remain unexported.
+- Unit tests live in the same package (`_test.go`), integration tests in `tests/`.
+- Configuration types (`ConfProxy`, `ConfRule`, etc.) stay in `config/` and are referenced by other packages — avoid duplication.
+- `global.go` (constants, `Options`) stays at the root until the CLI migration is clarified, then moves to `cmd/`.

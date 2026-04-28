@@ -177,5 +177,5 @@ func timeRange() bool {
 	return true
 }
 func alert(message string) {
-	logInfo("%s", message)
+	_logger.Infof("%s", message)
 }

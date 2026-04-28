@@ -4,11 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
-
-	"github.com/momiji/kpx/log"
 )
-
-var _logger = log.NewDefaultLogger()
 
 func logPrintf(format string, a ...any) {
 	_logger.Infof(format, a...)

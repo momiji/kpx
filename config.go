@@ -16,6 +16,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/howeyc/gopass"
+	"github.com/momiji/kpx/log"
 	"github.com/palantir/stacktrace"
 	"golang.org/x/text/encoding/charmap"
 	yaml2 "gopkg.in/yaml.v2"
@@ -478,15 +479,15 @@ func (c *Config) build() error {
 	// download proxy pac
 	for _, proxy := range c.conf.Proxies {
 		if proxy.isUsed && *proxy.Type == ProxyPac {
-			logInfo("[-] Loading proxy pac: %s", *proxy.Url)
+			_logger.Infof("[-] Loading proxy pac: %s", *proxy.Url)
 			js, ex, err := c.downloadPac(*proxy.Url)
 			if err != nil {
 				ok := false
 				if js, ok = c.pacsCache[*proxy.Url]; ok {
-					logInfo("[-] Error: unable to download or use pac, using cached js")
+					_logger.Infof("[-] Error: unable to download or use pac, using cached js")
 					ex, _ = c.pacToExecutor(js)
 				} else {
-					logError("[-] Error: %v", err)
+					_logger.Errorf("[-] Error: %v", err)
 				}
 			}
 			if js == "" {
@@ -694,7 +695,12 @@ null
 }
 
 func (c *Config) askCredentials() error {
-	// logFlush()
+	// switch to sync mode to avoid multiple concurrent questions when multiple proxies need credentials at the same time
+	// then switch back to previous mode (async or sync)
+	currentMode := _logger.GetMode()
+	_logger.SetMode(log.LogModeSync)
+	defer _logger.SetMode(currentMode)
+
 	var err error
 	for _, cred := range c.conf.Credentials {
 		if cred.isUsed && !cred.isPerUser && !cred.isNative {
@@ -703,7 +709,7 @@ func (c *Config) askCredentials() error {
 				message = fmt.Sprintf("Proxy [%s] -", strings.SplitN(*cred.name, "-", 2)[1])
 			}
 			if cred.Login == nil {
-				logPrintf("[-] %s Enter login: ", message)
+				_logger.Infof("[-] %s Enter login: ", message)
 				var login string
 				_, err = fmt.Scanln(&login)
 				if err != nil {
@@ -713,7 +719,7 @@ func (c *Config) askCredentials() error {
 				c.disableAutoUpdate = true
 			}
 			if cred.Password == nil {
-				logPrintf("[-] %s Enter password for user '%s': ", message, *cred.Login)
+				_logger.Infof("[-] %s Enter password for user '%s': ", message, *cred.Login)
 				pwdBytes, err := gopass.GetPasswdMasked() // looks like password always exists even if error
 				if err != nil {
 					return stacktrace.NewError("Invalid empty password")

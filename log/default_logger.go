@@ -29,6 +29,12 @@ func NewDefaultLogger() Logger {
 	}
 }
 
+func (l *defaultLogger) GetMode() LogMode {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	return l.mode
+}
+
 func (l *defaultLogger) SetMode(mode LogMode) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
@@ -70,10 +76,13 @@ func (l *defaultLogger) SetLogLevel(level LogLevel) {
 func (l *defaultLogger) Destroy() {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
+	// flush and destroy the logger if it exists
 	if l.logger != nil {
+		l.logger.Flush()
 		l.logger.Destroy()
 		l.logger = nil
 	}
+	// switch to sync mode to ensure all logs are flushed before exiting
 	if l.mode == LogModeAsync {
 		l.mode = LogModeSync
 	}
@@ -93,6 +102,17 @@ func (l *defaultLogger) Infof(format string, args ...any) {
 
 func (l *defaultLogger) Errorf(format string, args ...any) {
 	l.printf(LogLevelError, format, args...)
+}
+
+func (l *defaultLogger) Fatalf(format string, args ...any) {
+	// flush and destroy the logger before exiting
+	l.Destroy()
+	// switch to sync mode to ensure the fatal message is printed before exiting
+	l.SetMode(LogModeSync)
+	// log the fatal message
+	l.printf(LogLevelError, format, args...)
+	// exit the program with a non-zero status code to indicate an error
+	os.Exit(1)
 }
 
 func (l *defaultLogger) printf(level LogLevel, format string, args ...any) {

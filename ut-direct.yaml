@@ -1,8 +1,8 @@
 bind: 0.0.0.0
 port: 8888
 verbose: true
-debug: false
-trace: false
+debug: true
+trace: true
 
 rules:
   - host: "*"

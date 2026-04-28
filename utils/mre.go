@@ -10,7 +10,7 @@ import (
 // Once it has been signaled, ManualResetEvent remains signaled until it is manually reset.
 // When signaled, all waiting goroutines are released, and all calls to Wait return immediately.
 type ManualResetEvent struct {
-	lock    sync.RWMutex
+	mutex   sync.RWMutex
 	channel chan struct{}
 }
 
@@ -27,8 +27,8 @@ func NewManualResetEvent(s bool) *ManualResetEvent {
 
 // Signal sets the state of e to signaled, waking one or more waiting goroutines.
 func (e *ManualResetEvent) Signal() {
-	e.lock.RLock()
-	defer e.lock.RUnlock()
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
 	select {
 	case <-e.channel: //ch is closed
 	default:
@@ -38,8 +38,8 @@ func (e *ManualResetEvent) Signal() {
 
 // Reset sets the state of e to nonsignaled.
 func (e *ManualResetEvent) Reset() {
-	e.lock.Lock()
-	defer e.lock.Unlock()
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	select {
 	case <-e.channel: //ch is closed
 		e.channel = make(chan struct{})
@@ -49,18 +49,18 @@ func (e *ManualResetEvent) Reset() {
 
 // Wait suspends execution of the calling goroutine until e receives a signal.
 func (e *ManualResetEvent) Wait() {
-	e.lock.RLock()
+	e.mutex.RLock()
 	c := e.channel
-	e.lock.RUnlock()
+	e.mutex.RUnlock()
 	<-c
 }
 
 // WaitContext suspends execution of the calling goroutine until e receives a signal, or until the context is cancelled.
 // The returned error is nil if e received a signal, or ctx.Err()
 func (e *ManualResetEvent) WaitContext(ctx context.Context) error {
-	e.lock.RLock()
+	e.mutex.RLock()
 	c := e.channel
-	e.lock.RUnlock()
+	e.mutex.RUnlock()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -70,16 +70,16 @@ func (e *ManualResetEvent) WaitContext(ctx context.Context) error {
 }
 
 func (e *ManualResetEvent) Channel() chan struct{} {
-	e.lock.RLock()
+	e.mutex.RLock()
 	c := e.channel
-	e.lock.RUnlock()
+	e.mutex.RUnlock()
 	return c
 }
 
 func (e *ManualResetEvent) IsSignaled() bool {
-	e.lock.RLock()
+	e.mutex.RLock()
 	c := e.channel
-	e.lock.RUnlock()
+	e.mutex.RUnlock()
 	select {
 	case <-c:
 		return true

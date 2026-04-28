@@ -8,7 +8,7 @@ import (
 )
 
 type DefaultCertManager struct {
-	lock         sync.RWMutex
+	mutex        sync.RWMutex
 	prefix       string
 	ca           *Cert
 	certificates map[string]*tls.Certificate
@@ -42,14 +42,14 @@ func NewDefaultCertManager(ca *Cert, prefix string, names []string) (*DefaultCer
 }
 
 func (m *DefaultCertManager) GetCertificate(dns string) (*tls.Certificate, error) {
-	m.lock.RLock()
+	m.mutex.RLock()
 	cert, err := m.findCertificate(dns, false)
-	m.lock.RUnlock()
+	m.mutex.RUnlock()
 	if err != nil || cert != nil {
 		return cert, err
 	}
-	m.lock.Lock()
-	defer m.lock.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 	return m.findCertificate(dns, true)
 }
 

@@ -1,18 +1,18 @@
-package cert_test
+package certs_test
 
 import (
 	"sync"
 	"testing"
 
-	"github.com/momiji/kpx/cert"
+	"github.com/momiji/kpx/certs"
 )
 
 // Note: Manager.newCertificate always generates 2048-bit RSA keys internally,
 // so tests that trigger on-demand cert generation are intentionally slower.
 
-func newManager(t *testing.T, names []string) *cert.Manager {
+func newManager(t *testing.T, names []string) *certs.DefaultCertManager {
 	t.Helper()
-	m, err := cert.NewManager(getCA(t), "test:", names)
+	m, err := certs.NewDefaultCertManager(getCA(t), "test:", names)
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
 	}
@@ -153,14 +153,20 @@ func TestGetCertificate_WildcardEntrySharedBySubdomains(t *testing.T) {
 func TestGetCertificate_Concurrent_SameDNS(t *testing.T) {
 	m := newManager(t, []string{"**"})
 	const n = 20
-	results := make([]*struct{ c interface{}; err error }, n)
+	results := make([]*struct {
+		c   interface{}
+		err error
+	}, n)
 	var wg sync.WaitGroup
 	wg.Add(n)
 	for i := range n {
 		go func(i int) {
 			defer wg.Done()
 			c, err := m.GetCertificate("concurrent.example.com")
-			results[i] = &struct{ c interface{}; err error }{c, err}
+			results[i] = &struct {
+				c   interface{}
+				err error
+			}{c, err}
 		}(i)
 	}
 	wg.Wait()
@@ -197,7 +203,7 @@ func TestGetCertificate_Concurrent_DifferentDNS(t *testing.T) {
 // ── NewManager error propagation ──────────────────────────────────────────────
 
 func TestNewManager_EmptyNames(t *testing.T) {
-	m, err := cert.NewManager(getCA(t), "pfx:", nil)
+	m, err := certs.NewDefaultCertManager(getCA(t), "pfx:", nil)
 	if err != nil {
 		t.Fatalf("NewManager with no names: %v", err)
 	}

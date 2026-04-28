@@ -1,4 +1,4 @@
-package cert_test
+package certs_test
 
 import (
 	"crypto/rsa"
@@ -9,20 +9,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/momiji/kpx/cert"
+	"github.com/momiji/kpx/certs"
 )
 
 // sharedCA is created once per test binary run (1024-bit for speed).
 var (
-	sharedCA     *cert.Cert
+	sharedCA     *certs.Cert
 	sharedCAOnce sync.Once
 )
 
-func getCA(t *testing.T) *cert.Cert {
+func getCA(t *testing.T) *certs.Cert {
 	t.Helper()
 	sharedCAOnce.Do(func() {
 		var err error
-		sharedCA, err = cert.NewCert(cert.NewBasicCACertConfig("test-ca", 1), 1024, nil)
+		sharedCA, err = certs.NewCert(certs.NewBasicCACertConfig("test-ca", 1), 1024, nil)
 		if err != nil {
 			panic("getCA: " + err.Error())
 		}
@@ -33,7 +33,7 @@ func getCA(t *testing.T) *cert.Cert {
 // ── NewBasicCACertConfig ──────────────────────────────────────────────────────
 
 func TestNewBasicCACertConfig_IsCA(t *testing.T) {
-	cfg := cert.NewBasicCACertConfig("my-ca", 42)
+	cfg := certs.NewBasicCACertConfig("my-ca", 42)
 	if !cfg.IsCA {
 		t.Error("IsCA should be true")
 	}
@@ -43,7 +43,7 @@ func TestNewBasicCACertConfig_IsCA(t *testing.T) {
 }
 
 func TestNewBasicCACertConfig_CommonNameAndSerial(t *testing.T) {
-	cfg := cert.NewBasicCACertConfig("my-ca", 99)
+	cfg := certs.NewBasicCACertConfig("my-ca", 99)
 	if cfg.Subject.CommonName != "my-ca" {
 		t.Errorf("CommonName = %q, want %q", cfg.Subject.CommonName, "my-ca")
 	}
@@ -53,14 +53,14 @@ func TestNewBasicCACertConfig_CommonNameAndSerial(t *testing.T) {
 }
 
 func TestNewBasicCACertConfig_KeyUsageIncludesCertSign(t *testing.T) {
-	cfg := cert.NewBasicCACertConfig("ca", 1)
+	cfg := certs.NewBasicCACertConfig("ca", 1)
 	if cfg.KeyUsage&0x20 == 0 { // x509.KeyUsageCertSign
 		t.Error("KeyUsage should include CertSign")
 	}
 }
 
 func TestNewBasicCACertConfig_ValidityApprox100Years(t *testing.T) {
-	cfg := cert.NewBasicCACertConfig("ca", 1)
+	cfg := certs.NewBasicCACertConfig("ca", 1)
 	if time.Until(cfg.NotAfter) < 99*365*24*time.Hour {
 		t.Errorf("NotAfter too soon: %v", cfg.NotAfter)
 	}
@@ -69,14 +69,14 @@ func TestNewBasicCACertConfig_ValidityApprox100Years(t *testing.T) {
 // ── NewBasicHttpsCertConfig ───────────────────────────────────────────────────
 
 func TestNewBasicHttpsCertConfig_DNSNames(t *testing.T) {
-	cfg := cert.NewBasicHttpsCertConfig("cn", []string{"example.com", "www.example.com"}, 1)
+	cfg := certs.NewBasicHttpsCertConfig("cn", []string{"example.com", "www.example.com"}, 1)
 	if len(cfg.DNSNames) != 2 {
 		t.Fatalf("expected 2 DNS names, got %d", len(cfg.DNSNames))
 	}
 }
 
 func TestNewBasicHttpsCertConfig_IPAddress(t *testing.T) {
-	cfg := cert.NewBasicHttpsCertConfig("cn", []string{"1.2.3.4"}, 1)
+	cfg := certs.NewBasicHttpsCertConfig("cn", []string{"1.2.3.4"}, 1)
 	// always contains 127.0.0.1 + provided IP
 	found := false
 	for _, ip := range cfg.IPAddresses {
@@ -90,7 +90,7 @@ func TestNewBasicHttpsCertConfig_IPAddress(t *testing.T) {
 }
 
 func TestNewBasicHttpsCertConfig_MixedSANs(t *testing.T) {
-	cfg := cert.NewBasicHttpsCertConfig("cn", []string{"example.com", "192.168.1.1"}, 1)
+	cfg := certs.NewBasicHttpsCertConfig("cn", []string{"example.com", "192.168.1.1"}, 1)
 	if len(cfg.DNSNames) != 1 || cfg.DNSNames[0] != "example.com" {
 		t.Errorf("unexpected DNSNames: %v", cfg.DNSNames)
 	}
@@ -106,7 +106,7 @@ func TestNewBasicHttpsCertConfig_MixedSANs(t *testing.T) {
 }
 
 func TestNewBasicHttpsCertConfig_NilNames(t *testing.T) {
-	cfg := cert.NewBasicHttpsCertConfig("cn", nil, 1)
+	cfg := certs.NewBasicHttpsCertConfig("cn", nil, 1)
 	if len(cfg.DNSNames) != 0 {
 		t.Errorf("expected no DNS names, got %v", cfg.DNSNames)
 	}
@@ -117,7 +117,7 @@ func TestNewBasicHttpsCertConfig_NilNames(t *testing.T) {
 }
 
 func TestNewBasicHttpsCertConfig_ValidityApprox10Years(t *testing.T) {
-	cfg := cert.NewBasicHttpsCertConfig("cn", nil, 1)
+	cfg := certs.NewBasicHttpsCertConfig("cn", nil, 1)
 	if time.Until(cfg.NotAfter) < 9*365*24*time.Hour {
 		t.Errorf("NotAfter too soon: %v", cfg.NotAfter)
 	}
@@ -126,8 +126,8 @@ func TestNewBasicHttpsCertConfig_ValidityApprox10Years(t *testing.T) {
 // ── NewCert ───────────────────────────────────────────────────────────────────
 
 func TestNewCert_SelfSigned(t *testing.T) {
-	cfg := cert.NewBasicCACertConfig("self", 2)
-	c, err := cert.NewCert(cfg, 1024, nil)
+	cfg := certs.NewBasicCACertConfig("self", 2)
+	c, err := certs.NewCert(cfg, 1024, nil)
 	if err != nil {
 		t.Fatalf("NewCert: %v", err)
 	}
@@ -142,8 +142,8 @@ func TestNewCert_SelfSigned(t *testing.T) {
 
 func TestNewCert_SignedByCA(t *testing.T) {
 	ca := getCA(t)
-	cfg := cert.NewBasicHttpsCertConfig("leaf", []string{"leaf.example.com"}, 3)
-	leaf, err := cert.NewCert(cfg, 1024, ca)
+	cfg := certs.NewBasicHttpsCertConfig("leaf", []string{"leaf.example.com"}, 3)
+	leaf, err := certs.NewCert(cfg, 1024, ca)
 	if err != nil {
 		t.Fatalf("NewCert: %v", err)
 	}
@@ -157,8 +157,8 @@ func TestNewCert_SignedByCA(t *testing.T) {
 
 func TestNewCert_PrivateKeyMatchesPublic(t *testing.T) {
 	ca := getCA(t)
-	cfg := cert.NewBasicHttpsCertConfig("leaf2", []string{"leaf2.example.com"}, 4)
-	c, err := cert.NewCert(cfg, 1024, ca)
+	cfg := certs.NewBasicHttpsCertConfig("leaf2", []string{"leaf2.example.com"}, 4)
+	c, err := certs.NewCert(cfg, 1024, ca)
 	if err != nil {
 		t.Fatalf("NewCert: %v", err)
 	}
@@ -186,8 +186,8 @@ func TestToPEM_ProducesValidPEMBlocks(t *testing.T) {
 
 func TestNewCertFromPEM_RoundTrip(t *testing.T) {
 	ca := getCA(t)
-	cfg := cert.NewBasicHttpsCertConfig("rt", []string{"rt.example.com"}, 5)
-	original, err := cert.NewCert(cfg, 1024, ca)
+	cfg := certs.NewBasicHttpsCertConfig("rt", []string{"rt.example.com"}, 5)
+	original, err := certs.NewCert(cfg, 1024, ca)
 	if err != nil {
 		t.Fatalf("NewCert: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestNewCertFromPEM_RoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ToPEM: %v", err)
 	}
-	restored, err := cert.NewCertFromPEM(pub, priv)
+	restored, err := certs.NewCertFromPEM(pub, priv)
 	if err != nil {
 		t.Fatalf("NewCertFromPEM: %v", err)
 	}
@@ -208,7 +208,7 @@ func TestNewCertFromPEM_RoundTrip(t *testing.T) {
 }
 
 func TestNewCertFromPEM_MalformedPublic(t *testing.T) {
-	_, err := cert.NewCertFromPEM("not-valid-pem", "")
+	_, err := certs.NewCertFromPEM("not-valid-pem", "")
 	if err == nil {
 		t.Fatal("expected error for malformed public PEM, got nil")
 	}
@@ -220,7 +220,7 @@ func TestNewCertFromPEM_MalformedPrivate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = cert.NewCertFromPEM(pub, "not-valid-pem")
+	_, err = certs.NewCertFromPEM(pub, "not-valid-pem")
 	if err == nil {
 		t.Fatal("expected error for malformed private PEM, got nil")
 	}
@@ -230,14 +230,14 @@ func TestNewCertFromPEM_MalformedPrivate(t *testing.T) {
 
 func TestSaveToFiles_NewCertFromFiles_RoundTrip(t *testing.T) {
 	dir := t.TempDir()
-	pubPath := filepath.Join(dir, "cert.pem")
+	pubPath := filepath.Join(dir, "certs.pem")
 	privPath := filepath.Join(dir, "key.pem")
 
 	ca := getCA(t)
 	if err := ca.SaveToFiles(pubPath, privPath); err != nil {
 		t.Fatalf("SaveToFiles: %v", err)
 	}
-	restored, err := cert.NewCertFromFiles(pubPath, privPath)
+	restored, err := certs.NewCertFromFiles(pubPath, privPath)
 	if err != nil {
 		t.Fatalf("NewCertFromFiles: %v", err)
 	}
@@ -251,7 +251,7 @@ func TestSaveToFiles_NewCertFromFiles_RoundTrip(t *testing.T) {
 
 func TestSaveToFiles_PrivateKeyPermissions(t *testing.T) {
 	dir := t.TempDir()
-	pubPath := filepath.Join(dir, "cert.pem")
+	pubPath := filepath.Join(dir, "certs.pem")
 	privPath := filepath.Join(dir, "key.pem")
 
 	ca := getCA(t)
@@ -269,7 +269,7 @@ func TestSaveToFiles_PrivateKeyPermissions(t *testing.T) {
 
 func TestSaveToFiles_PublicKeyPermissions(t *testing.T) {
 	dir := t.TempDir()
-	pubPath := filepath.Join(dir, "cert.pem")
+	pubPath := filepath.Join(dir, "certs.pem")
 	privPath := filepath.Join(dir, "key.pem")
 
 	ca := getCA(t)
@@ -286,7 +286,7 @@ func TestSaveToFiles_PublicKeyPermissions(t *testing.T) {
 }
 
 func TestNewCertFromFiles_MissingFile(t *testing.T) {
-	_, err := cert.NewCertFromFiles("/nonexistent/cert.pem", "/nonexistent/key.pem")
+	_, err := certs.NewCertFromFiles("/nonexistent/certs.pem", "/nonexistent/key.pem")
 	if err == nil {
 		t.Fatal("expected error for missing file, got nil")
 	}
@@ -296,16 +296,16 @@ func TestNewCertFromFiles_MissingFile(t *testing.T) {
 
 func TestNewPbkdfCert_Deterministic(t *testing.T) {
 	ca := getCA(t)
-	cfg := cert.NewBasicHttpsCertConfig("pbkdf", []string{"pbkdf.example.com"}, 10)
+	cfg := certs.NewBasicHttpsCertConfig("pbkdf", []string{"pbkdf.example.com"}, 10)
 	password := []byte("secret-password")
 	salt := []byte("fixed-salt-value")
 	iter := 100
 
-	c1, err := cert.NewPbkdfCert(cfg, 1024, ca, password, salt, iter)
+	c1, err := certs.NewPbkdfCert(cfg, 1024, ca, password, salt, iter)
 	if err != nil {
 		t.Fatalf("first NewPbkdfCert: %v", err)
 	}
-	c2, err := cert.NewPbkdfCert(cfg, 1024, ca, password, salt, iter)
+	c2, err := certs.NewPbkdfCert(cfg, 1024, ca, password, salt, iter)
 	if err != nil {
 		t.Fatalf("second NewPbkdfCert: %v", err)
 	}
@@ -319,14 +319,14 @@ func TestNewPbkdfCert_DifferentPasswordYieldsDifferentKey(t *testing.T) {
 	salt := []byte("fixed-salt")
 	iter := 100
 
-	cfg1 := cert.NewBasicHttpsCertConfig("pbkdf2a", []string{"pbkdf2a.example.com"}, 11)
-	c1, err := cert.NewPbkdfCert(cfg1, 1024, ca, []byte("password-A"), salt, iter)
+	cfg1 := certs.NewBasicHttpsCertConfig("pbkdf2a", []string{"pbkdf2a.example.com"}, 11)
+	c1, err := certs.NewPbkdfCert(cfg1, 1024, ca, []byte("password-A"), salt, iter)
 	if err != nil {
 		t.Fatalf("c1: %v", err)
 	}
 
-	cfg2 := cert.NewBasicHttpsCertConfig("pbkdf2b", []string{"pbkdf2b.example.com"}, 12)
-	c2, err := cert.NewPbkdfCert(cfg2, 1024, ca, []byte("password-B"), salt, iter)
+	cfg2 := certs.NewBasicHttpsCertConfig("pbkdf2b", []string{"pbkdf2b.example.com"}, 12)
+	c2, err := certs.NewPbkdfCert(cfg2, 1024, ca, []byte("password-B"), salt, iter)
 	if err != nil {
 		t.Fatalf("c2: %v", err)
 	}
@@ -338,8 +338,8 @@ func TestNewPbkdfCert_DifferentPasswordYieldsDifferentKey(t *testing.T) {
 
 func TestNewPbkdfCert_SignedByCA(t *testing.T) {
 	ca := getCA(t)
-	cfg := cert.NewBasicHttpsCertConfig("pbkdf3", []string{"pbkdf3.example.com"}, 12)
-	c, err := cert.NewPbkdfCert(cfg, 1024, ca, []byte("pw"), []byte("salt"), 100)
+	cfg := certs.NewBasicHttpsCertConfig("pbkdf3", []string{"pbkdf3.example.com"}, 12)
+	c, err := certs.NewPbkdfCert(cfg, 1024, ca, []byte("pw"), []byte("salt"), 100)
 	if err != nil {
 		t.Fatalf("NewPbkdfCert: %v", err)
 	}

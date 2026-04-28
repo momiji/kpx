@@ -51,7 +51,7 @@ kpx/
 │   ├── conn.go                # TimedConn, CloseAwareConn
 │   └── chunked.go             # chunkedReader (HTTP chunked decoding)
 │
-├── cert/                      # TLS certificate management
+├── certs/                     # TLS certificate management
 │   ├── cert.go                # Certificate generation (RSA, X.509)
 │   └── manager.go             # CertsManager: cache and wildcards
 │

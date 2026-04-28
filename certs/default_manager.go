@@ -1,4 +1,4 @@
-package cert
+package certs
 
 import (
 	"crypto/tls"
@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-type Manager struct {
+type DefaultCertManager struct {
 	lock         sync.RWMutex
 	prefix       string
 	ca           *Cert
@@ -15,8 +15,8 @@ type Manager struct {
 	lastMicro    int64
 }
 
-func NewManager(ca *Cert, prefix string, names []string) (*Manager, error) {
-	m := Manager{
+func NewDefaultCertManager(ca *Cert, prefix string, names []string) (*DefaultCertManager, error) {
+	m := DefaultCertManager{
 		prefix:       prefix,
 		ca:           ca,
 		certificates: make(map[string]*tls.Certificate),
@@ -41,7 +41,7 @@ func NewManager(ca *Cert, prefix string, names []string) (*Manager, error) {
 	return &m, nil
 }
 
-func (m *Manager) GetCertificate(dns string) (*tls.Certificate, error) {
+func (m *DefaultCertManager) GetCertificate(dns string) (*tls.Certificate, error) {
 	m.lock.RLock()
 	cert, err := m.findCertificate(dns, false)
 	m.lock.RUnlock()
@@ -53,7 +53,7 @@ func (m *Manager) GetCertificate(dns string) (*tls.Certificate, error) {
 	return m.findCertificate(dns, true)
 }
 
-func (m *Manager) newCertificate(dns string) (*tls.Certificate, error) {
+func (m *DefaultCertManager) newCertificate(dns string) (*tls.Certificate, error) {
 	newMicro := time.Now().UnixMicro()
 	if newMicro <= m.lastMicro {
 		newMicro = m.lastMicro + 1
@@ -74,7 +74,7 @@ func (m *Manager) newCertificate(dns string) (*tls.Certificate, error) {
 	return &cert, nil
 }
 
-func (m *Manager) findCertificate(dns string, lock bool) (*tls.Certificate, error) {
+func (m *DefaultCertManager) findCertificate(dns string, lock bool) (*tls.Certificate, error) {
 	// exact match: x.y.z
 	if cert, ok := m.certificates[dns]; ok {
 		return cert, nil

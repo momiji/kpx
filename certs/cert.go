@@ -1,4 +1,4 @@
-package cert
+package certs
 
 import (
 	"bytes"
@@ -11,12 +11,13 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
-	"golang.org/x/crypto/pbkdf2"
 	"io"
 	"math/big"
 	"net"
 	"os"
 	"time"
+
+	"golang.org/x/crypto/pbkdf2"
 )
 
 // See https://shaneutt.com/blog/golang-ca-and-signed-cert-go/

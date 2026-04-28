@@ -16,7 +16,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/howeyc/gopass"
-	"github.com/momiji/kpx/cert"
+	"github.com/momiji/kpx/certs"
 	"github.com/momiji/kpx/log"
 	"github.com/momiji/kpx/utils"
 	"github.com/palantir/stacktrace"
@@ -29,7 +29,7 @@ type Config struct {
 	pac               string
 	lastProxies       map[string]time.Time
 	lastMMutex        sync.RWMutex
-	certsManager      *cert.Manager
+	certsManager      certs.CertManager
 	disableAutoUpdate bool
 	hostsCache        map[string]*HostCache
 	hostsCacheMutex   sync.RWMutex
@@ -977,9 +977,9 @@ func (c *Config) genCerts() error {
 	// read/create CA
 	caCert := AppName + ".ca.crt"
 	caKey := AppName + ".ca.key"
-	ca, err := cert.NewCertFromFiles(caCert, caKey)
+	ca, err := certs.NewCertFromFiles(caCert, caKey)
 	if err != nil {
-		ca, err = cert.NewCert(cert.NewBasicCACertConfig("kpx ca - "+uuid.NewString(), time.Now().UnixMicro()), 2048, nil)
+		ca, err = certs.NewCert(certs.NewBasicCACertConfig("kpx ca - "+uuid.NewString(), time.Now().UnixMicro()), 2048, nil)
 		if err != nil {
 			return fmt.Errorf("unable to generate CA certificate: %v", err)
 		}
@@ -989,7 +989,7 @@ func (c *Config) genCerts() error {
 		}
 	}
 
-	cm, err := cert.NewManager(ca, "kpx:", []string{"**"})
+	cm, err := certs.NewDefaultCertManager(ca, "kpx:", []string{"**"})
 	if err != nil {
 		return fmt.Errorf("unable to create certificates manager: %v", err)
 	}

@@ -2,3 +2,4 @@
 - modifier le loglevel au rechargement de la config
 - remplacer les errors par des stacktrace.propagate ?
 - DomainMapper : passer de *string à string
+- socks : ajouter dans la UI

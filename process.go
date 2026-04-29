@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/momiji/kpx/log"
+	"github.com/momiji/kpx/transport"
 	"github.com/momiji/kpx/ui"
 	"github.com/txthinking/socks5"
 
@@ -24,7 +25,7 @@ import (
 type Process struct {
 	config        *Config //copy config here because it is multithreaded
 	proxy         *Proxy
-	conn          *TimedConn
+	conn          *transport.TrafficConn
 	reqId         int32
 	verbose       bool
 	logName       string
@@ -35,8 +36,6 @@ type Process struct {
 	loadCounter   int32
 	moduleLogger  *log.ModuleLogger
 	requestLogger *log.RequestLogger
-	traffic       *ui.TrafficRow
-	trafficConn   *TrafficConn
 }
 
 func NewProcess(proxy *Proxy, conn net.Conn) *Process {
@@ -45,12 +44,11 @@ func NewProcess(proxy *Proxy, conn net.Conn) *Process {
 	if trace {
 		moduleLogger.Tracef("create process")
 	}
-	trafficConn := NewTrafficConn(conn)
+	trafficConn := transport.NewTrafficConn(conn, true)
 	return &Process{
 		config:        proxy.getConfig(),
 		proxy:         proxy,
-		conn:          NewTimedConn(trafficConn, log.NewModuleLogger(reqId, "client", _logger)),
-		trafficConn:   trafficConn,
+		conn:          trafficConn,
 		reqId:         reqId,
 		loadCounter:   proxy.loadCounter.Load(),
 		moduleLogger:  moduleLogger,
@@ -84,9 +82,6 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 	p.logPrefix = ""
 	clientChannel.prefix = ""
 
-	// set timeout for reading headers
-	clientChannel.conn.setTimeout(p.config.conf.ConnectTimeout)
-
 	// read request headers - set timeout to prevent waiting forever incoming http headers
 	err := clientChannel.readRequestHeaders()
 	if err != nil {
@@ -102,9 +97,6 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 		_ = p.webServer(clientChannel)
 		return p.closeChannels(clientChannel, proxyChannel)
 	}
-
-	// prevent timeout on connections
-	clientChannel.conn.setTimeout(0)
 
 	// if url is local server, serve as http server
 	// find proxy to use from host:port
@@ -126,9 +118,8 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 	}
 
 	// traffic data
-	p.traffic = ui.NewTrafficRow(p.reqId, p.logTraffic)
-	ui.TrafficData.Add(p.traffic)
-	p.trafficConn.row = p.traffic
+	trafficRow := ui.NewTrafficRow(p.reqId, p.logTraffic, p.conn)
+	ui.TrafficData.Add(trafficRow)
 
 	// if no proxy, just throw away the request
 	if rule == nil || firstProxy == nil || *firstProxy.Type == ProxyNone {
@@ -140,7 +131,6 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 	// if we're reusing an existing connection, authorization is not necessary
 	var authorization *string
 	var authorizationFunc func() (*string, error)
-	var authorizationContext string
 
 	// check if authentication is required as defined in the configuration.
 	// authentication is computed on each request, regardless connection will be reused or not.
@@ -161,7 +151,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 		proxyAuthorization := clientChannel.findHeader("proxy-authorization")
 		if proxyAuthorization != nil {
 			var authenticated bool
-			authenticated, authorizationContext, authorizationFunc = p.computeAuthPerUser(firstProxy, proxyAuthorization)
+			authenticated, authorizationFunc = p.computeAuthPerUser(firstProxy, proxyAuthorization)
 			if !authenticated {
 				// authentication failed
 				_ = clientChannel.requireAuth(*firstProxy.name)
@@ -181,7 +171,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 			p.moduleLogger.Debugf("authentication")
 		}
 		var authenticated bool
-		authenticated, authorizationContext, authorizationFunc = p.computeAuthPerConf(firstProxy)
+		authenticated, authorizationFunc = p.computeAuthPerConf(firstProxy)
 		if !authenticated {
 			// authentication failed
 			_ = clientChannel.requireAuth(*firstProxy.name)
@@ -197,11 +187,8 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 	// man-in-the-middle - it seems to work for all proxy configuration
 	mitmProxy := true
 	mitmClient := true
-	// if connection from pool
-	var pooledConnInfo *PooledConnectionInfo
 	// try up to retryable connections
 	for {
-		pooledConnInfo = nil
 		p.moduleLogger.Tracef("start connection (retryable=%d)", retryable)
 		if proxyChannel == nil {
 			p.moduleLogger.Tracef("create proxy channel")
@@ -213,17 +200,8 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 				if firstProxy.Ssl {
 					tlsConfig := tls.Config{}
 					conn, err = tls.DialWithDialer(dialer, "tcp4", firstHostPort, &tlsConfig)
-				} else if clientChannel.header.isConnect || clientChannel.header.directToConnect {
-					conn, err = dialer.Dial("tcp4", firstHostPort)
 				} else {
-					// may reuse a http connection from pool
-					var reused bool
-					reused, pooledConnInfo, err = p.proxy.newPooledConn(dialer, "tcp4", firstHostPort, clientChannel.header.host, authorizationContext, p.reqId)
-					conn = pooledConnInfo.conn
-					if reused && *firstProxy.Type == ProxyKerberos {
-						// reused connection is already authenticated
-						authentication = false
-					}
+					conn, err = dialer.Dial("tcp4", firstHostPort)
 				}
 			case ProxySocks:
 				simulateConnect = clientChannel.header.isConnect
@@ -260,12 +238,8 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 				if firstProxy.Ssl {
 					tlsConfig := tls.Config{}
 					conn, err = tls.DialWithDialer(dialer, "tcp4", hostPort, &tlsConfig)
-				} else if clientChannel.header.isConnect || clientChannel.header.directToConnect {
-					conn, err = dialer.Dial("tcp4", hostPort)
 				} else {
-					// may reuse a http connection from pool
-					_, pooledConnInfo, err = p.proxy.newPooledConn(dialer, "tcp4", hostPort, clientChannel.header.host, authorizationContext, p.reqId)
-					conn = pooledConnInfo.conn
+					conn, err = dialer.Dial("tcp4", hostPort)
 				}
 			}
 			// if err == nil and pi>0 or pj>0, update last usage
@@ -278,9 +252,9 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 				p.requestLogger.Infof("%s => dial: no connection available", p.logLine)
 				return p.closeChannels(clientChannel, proxyChannel)
 			}
-			ConfigureConn(conn)
+			transport.ConfigureConn(conn)
 			proxyChannel = &ProxyRequest{
-				conn:      NewTimedConn(conn, log.NewModuleLogger(p.reqId, "proxy", _logger)),
+				conn:      transport.NewTrafficConn(conn, false),
 				reqLogger: p.requestLogger,
 			}
 		}
@@ -303,8 +277,6 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 			if trace {
 				p.moduleLogger.Debugf("forward request")
 			}
-			clientChannel.conn.setTimeout(-p.config.conf.IdleTimeout)
-			proxyChannel.conn.setTimeout(-p.config.conf.IdleTimeout)
 			if !clientChannel.header.directToConnect {
 				err = p.forwardRequest(clientChannel, proxyChannel, *firstProxy.Type, authorization)
 				if err != nil {
@@ -320,7 +292,6 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 				if debug {
 					proxyChannel.prefix = fmt.Sprintf("%s P<", p.logPrefix)
 				}
-				proxyChannel.conn.setTimeout(p.config.conf.IdleTimeout)
 				err = proxyChannel.readResponseHeaders()
 				if err != nil {
 					p.requestLogger.Errorf("%s => forward: %#s", p.logLine, err)
@@ -334,7 +305,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 				if debug {
 					proxyChannel.prefix = fmt.Sprintf("%s P>", p.logPrefix)
 				}
-				proxyChannel.conn = NewTimedConn(tls.Client(proxyChannel.conn.conn, &tls.Config{ServerName: clientChannel.header.host}), log.NewModuleLogger(p.reqId, "proxy", _logger))
+				proxyChannel.conn.Conn = tls.Client(proxyChannel.conn.Conn, &tls.Config{ServerName: clientChannel.header.host})
 				err = p.forwardRequest(clientChannel, proxyChannel, *firstProxy.Type, authorization)
 				if err != nil {
 					p.requestLogger.Errorf("%s => forward: %#s", p.logLine, err)
@@ -354,7 +325,6 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 			// inject headers manually as if proxyChannel has been called
 			_ = proxyChannel.injectResponseHeaders([]string{"HTTP/1.0 200 Connection established"})
 		} else {
-			proxyChannel.conn.setTimeout(p.config.conf.IdleTimeout)
 			err := proxyChannel.readResponseHeaders()
 			if err != nil {
 				retryable--
@@ -385,8 +355,6 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 	if trace {
 		p.moduleLogger.Debugf("forward response")
 	}
-	clientChannel.conn.setTimeout(-p.config.conf.IdleTimeout)
-	proxyChannel.conn.setTimeout(-p.config.conf.IdleTimeout)
 	err = p.forwardResponse(proxyChannel, clientChannel, authentication)
 	if err != nil {
 		//logError("%s => %v", p.logLine, err)
@@ -410,16 +378,13 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 					return p.config.certsManager.GetCertificate(name)
 				},
 			}
-			clientChannel.conn.conn = tls.Server(clientChannel.conn.conn, &srvConfig)
+			clientChannel.conn.Conn = tls.Server(clientChannel.conn.Conn, &srvConfig)
 		}
 		// convert proxy connexion to a tls client
 		if mitmProxy {
 			cliConfig := tls.Config{InsecureSkipVerify: true}
-			proxyChannel.conn.conn = tls.Client(proxyChannel.conn.conn, &cliConfig)
+			proxyChannel.conn.Conn = tls.Client(proxyChannel.conn.Conn, &cliConfig)
 		}
-		// automatically close connection after long inactivity
-		clientChannel.conn.setTimeout(-p.config.conf.IdleTimeout)
-		proxyChannel.conn.setTimeout(-p.config.conf.IdleTimeout)
 		// infinite double pipe sync
 		for {
 			p.logLine = ""
@@ -462,27 +427,14 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 		if trace {
 			p.moduleLogger.Debugf("duplex pipe forever")
 		}
-		// automatically close connection after long inactivity
-		clientChannel.conn.setTimeout(-p.config.conf.IdleTimeout)
-		proxyChannel.conn.setTimeout(-p.config.conf.IdleTimeout)
-		// create a wait group to wait for both to finish
-		var finished sync.WaitGroup
-		finished.Add(2)
 		// double pipe async copy
-		go p.pipe(clientChannel, proxyChannel, &finished)
-		go p.pipe(proxyChannel, clientChannel, &finished)
-		// wait for both copy to finish
-		finished.Wait()
+		p.duplexPipe(clientChannel, proxyChannel)
 		return p.closeChannels(clientChannel, proxyChannel)
 	}
 	// if KeepAlive, allow to reuse connection
 	if clientChannel.header.keepAlive {
 		// reuse connection only if config has not changed
 		if p.loadCounter == p.proxy.loadCounter.Load() {
-			// reuse proxy channel for next request
-			if pooledConnInfo != nil {
-				p.proxy.pushConnToPool(pooledConnInfo, p.reqId)
-			}
 			return proxyChannel
 		}
 		return p.closeChannels(clientChannel, proxyChannel)
@@ -557,9 +509,6 @@ func (p *Process) closeChannels(clientChannel, proxyChannel *ProxyRequest) *Prox
 	}
 	p.closeChannel(clientChannel)
 	p.closeChannel(proxyChannel)
-	if p.traffic != nil {
-		ui.TrafficData.Remove(p.traffic)
-	}
 	return nil
 }
 
@@ -720,22 +669,32 @@ func (p *Process) forwardStream(source *ProxyRequest, target *ProxyRequest) erro
 	}
 	writer := target.conn
 	_, err := io.Copy(writer, reader)
-	// fast close connection after short inactivity, unless receiving new data
-	source.conn.setTimeout(-p.config.conf.CloseTimeout)
-	target.conn.setTimeout(-p.config.conf.CloseTimeout)
 	return err // no wrap
 }
 
-func (p *Process) pipe(source *ProxyRequest, target *ProxyRequest, wait *sync.WaitGroup) {
-	// io.Copy will use splice/sendfile (zerocopy) only if src/dst are of type *net.TCPConn
-	_, _ = io.Copy(target.conn.conn, source.conn.conn)
-	// fast close connection after short inactivity, unless receiving new data
-	//source.conn.setTimeout(-p.config.conf.CloseTimeout)
-	//target.conn.setTimeout(-p.config.conf.CloseTimeout)
-	// in a forever pipe, just close connections after copy is finished
-	p.closeChannel(source)
-	p.closeChannel(target)
-	wait.Done()
+func (p *Process) duplexPipe(source *ProxyRequest, target *ProxyRequest) {
+	// TODO io.Copy will use splice/sendfile (zerocopy) only if src/dst are of type *net.TCPConn
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// target → source
+	go func() {
+		defer wg.Done()
+		io.Copy(source.conn, target.conn)
+		// Signal server we're done writing to it
+		target.conn.CloseWrite()
+	}()
+
+	// source → target
+	go func() {
+		defer wg.Done()
+		io.Copy(target.conn, source.conn)
+		// Signal server we're done writing to it
+		source.conn.CloseWrite()
+	}()
+
+	wg.Wait()
+	p.closeChannels(source, target)
 }
 
 func (p *Process) hash(format string, a ...any) string {
@@ -797,7 +756,6 @@ func (p *Process) findFirstProxy(rule *ConfRule, proxies []*ConfProxy) (*ConfPro
 					p.requestLogger.Debugf("[%s] Host %s: %v", *proxy.name, hostPort, err)
 					continue
 				}
-				ConfigureConn(checkConn)
 				_ = checkConn.Close()
 				// update last proxy and host usage
 				p.config.lastMMutex.RLock()
@@ -833,9 +791,8 @@ func (p *Process) findFirstProxy(rule *ConfRule, proxies []*ConfProxy) (*ConfPro
 	return firstProxy, firstHostPort
 }
 
-func (p *Process) computeAuthPerUser(firstProxy *ConfProxy, proxyAuthorization *string) (bool, string, func() (*string, error)) {
+func (p *Process) computeAuthPerUser(firstProxy *ConfProxy, proxyAuthorization *string) (bool, func() (*string, error)) {
 	var authenticated bool
-	var authorizationContext string
 	var authorizationFunc func() (*string, error)
 	basic := strings.SplitN(*proxyAuthorization, " ", 2)
 	if len(basic) == 2 {
@@ -846,7 +803,6 @@ func (p *Process) computeAuthPerUser(firstProxy *ConfProxy, proxyAuthorization *
 				switch {
 				case *firstProxy.Type == ProxyKerberos:
 					// note that it is not needed to check isNative as there is no cred for per-user auth
-					authorizationContext = p.hash("krb:%s/%s/%s/%s", userDetails[0], *firstProxy.Realm, userDetails[1], *firstProxy.Host)
 					authorizationFunc = func(username string, realm string, password string, protocol string, host string) func() (*string, error) {
 						return func() (*string, error) {
 							// hide error, as this is not an unrecoverable error
@@ -859,7 +815,6 @@ func (p *Process) computeAuthPerUser(firstProxy *ConfProxy, proxyAuthorization *
 					}(userDetails[0], *firstProxy.Realm, userDetails[1], *firstProxy.Spn, *firstProxy.Host)
 					authenticated = true
 				case *firstProxy.Type == ProxyBasic:
-					authorizationContext = p.hash("basic:%s", *proxyAuthorization)
 					authorizationFunc = func(auth *string) func() (*string, error) {
 						return func() (*string, error) {
 							return auth, nil
@@ -868,7 +823,6 @@ func (p *Process) computeAuthPerUser(firstProxy *ConfProxy, proxyAuthorization *
 					authenticated = true
 				case *firstProxy.Type == ProxySocks:
 					credentialString := string(credentials)
-					authorizationContext = p.hash("socks:%s", credentialString)
 					authorizationFunc = func(auth *string) func() (*string, error) {
 						return func() (*string, error) {
 							return auth, nil
@@ -879,16 +833,14 @@ func (p *Process) computeAuthPerUser(firstProxy *ConfProxy, proxyAuthorization *
 			}
 		}
 	}
-	return authenticated, authorizationContext, authorizationFunc
+	return authenticated, authorizationFunc
 }
 
-func (p *Process) computeAuthPerConf(firstProxy *ConfProxy) (bool, string, func() (*string, error)) {
+func (p *Process) computeAuthPerConf(firstProxy *ConfProxy) (bool, func() (*string, error)) {
 	var authenticated bool
-	var authorizationContext string
 	var authorizationFunc func() (*string, error)
 	switch {
 	case *firstProxy.Type == ProxyKerberos && !firstProxy.cred.isNative:
-		authorizationContext = p.hash("krb:%s/%s/%s/%s", *firstProxy.cred.Login, *firstProxy.Realm, *firstProxy.cred.Password, *firstProxy.Host)
 		authorizationFunc = func(username string, realm string, password string, protocol string, host string) func() (*string, error) {
 			return func() (*string, error) {
 				// don't hide error, this is an unrecoverable error
@@ -902,7 +854,6 @@ func (p *Process) computeAuthPerConf(firstProxy *ConfProxy) (bool, string, func(
 		}(*firstProxy.cred.Login, *firstProxy.Realm, *firstProxy.cred.Password, *firstProxy.Spn, *firstProxy.Host)
 		authenticated = true
 	case *firstProxy.Type == ProxyKerberos && firstProxy.cred.isNative:
-		authorizationContext = p.hash("native:%s", *firstProxy.Host)
 		authorizationFunc = func(protocol string, host string) func() (*string, error) {
 			return func() (*string, error) {
 				// don't hide error, this is an unrecoverable error
@@ -918,7 +869,6 @@ func (p *Process) computeAuthPerConf(firstProxy *ConfProxy) (bool, string, func(
 	case *firstProxy.Type == ProxyBasic:
 		basic := fmt.Sprintf("%s:%s", *firstProxy.cred.Login, *firstProxy.cred.Password)
 		basic = "Basic " + base64.StdEncoding.EncodeToString([]byte(basic))
-		authorizationContext = p.hash("basic:%s", basic)
 		authorizationFunc = func(auth *string) func() (*string, error) {
 			return func() (*string, error) {
 				return auth, nil
@@ -927,7 +877,6 @@ func (p *Process) computeAuthPerConf(firstProxy *ConfProxy) (bool, string, func(
 		authenticated = true
 	case *firstProxy.Type == ProxySocks:
 		credentialString := fmt.Sprintf("%s:%s", *firstProxy.cred.Login, *firstProxy.cred.Password)
-		authorizationContext = p.hash("socks:%s", credentialString)
 		authorizationFunc = func(auth *string) func() (*string, error) {
 			return func() (*string, error) {
 				return auth, nil
@@ -935,7 +884,7 @@ func (p *Process) computeAuthPerConf(firstProxy *ConfProxy) (bool, string, func(
 		}(&credentialString)
 		authenticated = true
 	}
-	return authenticated, authorizationContext, authorizationFunc
+	return authenticated, authorizationFunc
 }
 
 func (p *Process) processSocks(request *socks5.Request) {
@@ -994,7 +943,7 @@ func (p *Process) processSocks(request *socks5.Request) {
 			p.moduleLogger.Debugf("authentication")
 		}
 		var authenticated bool
-		authenticated, _, authorizationFunc = p.computeAuthPerConf(firstProxy)
+		authenticated, authorizationFunc = p.computeAuthPerConf(firstProxy)
 		if !authenticated {
 			// authentication failed
 			return
@@ -1065,21 +1014,16 @@ func (p *Process) processSocks(request *socks5.Request) {
 			return
 		}
 		//
-		ConfigureConn(conn)
+		transport.ConfigureConn(conn)
 		proxyChannel = &ProxyRequest{
-			conn: NewTimedConn(conn, log.NewModuleLogger(p.reqId, "proxy", _logger)),
+			conn: transport.NewTrafficConn(conn, false),
 		}
 		break
 	}
 	//
-	// create a wait group to wait for both to finish
-	var finished sync.WaitGroup
-	finished.Add(2)
 	// double pipe async copy
-	go p.pipe(clientChannel, proxyChannel, &finished)
-	go p.pipe(proxyChannel, clientChannel, &finished)
-	// wait for both copy to finish
-	finished.Wait()
+	p.duplexPipe(clientChannel, proxyChannel)
+	_ = p.closeChannels(clientChannel, proxyChannel)
 }
 
 func sanitizeHeader(header string) string {

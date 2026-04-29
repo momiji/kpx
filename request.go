@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/momiji/kpx/log"
+	"github.com/momiji/kpx/transport"
 	"github.com/palantir/stacktrace"
 )
 
@@ -18,7 +19,7 @@ const CT_PLAIN_UTF8 = "text/plain; charset=UTF-8"
 
 type ProxyRequest struct {
 	// input / output streams
-	conn *TimedConn
+	conn *transport.TrafficConn
 	// headers stream, with already read data
 	header    *RequestHeader
 	prefix    string             // prefix for logging, with request id and direction (C> for client to proxy, P> for proxy to server)

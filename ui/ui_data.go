@@ -1,20 +1,18 @@
 package ui
 
 import (
-	"github.com/enterprizesoftware/rate-counter"
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/momiji/kpx/transport"
 )
 
 type TrafficRow struct {
-	ReqId                  int32
-	Url                    string
-	BytesSentPerSecond     *ratecounter.Rate
-	BytesReceivedPerSecond *ratecounter.Rate
-	Removed                time.Time
-	LastSend               time.Time
-	LastReceive            time.Time
+	ReqId   int32
+	Url     string
+	Conn    *transport.TrafficConn
+	Removed time.Time
 }
 
 type TrafficTable struct {
@@ -22,15 +20,12 @@ type TrafficTable struct {
 	lock  *sync.RWMutex
 }
 
-func NewTrafficRow(reqId int32, url string) *TrafficRow {
+func NewTrafficRow(reqId int32, url string, conn *transport.TrafficConn) *TrafficRow {
 	return &TrafficRow{
-		ReqId:                  reqId,
-		Url:                    url,
-		BytesSentPerSecond:     ratecounter.New(100*time.Millisecond, 5*time.Second),
-		BytesReceivedPerSecond: ratecounter.New(100*time.Millisecond, 5*time.Second),
-		Removed:                time.Time{},
-		LastSend:               time.Now(),
-		LastReceive:            time.Now(),
+		ReqId:   reqId,
+		Url:     url,
+		Conn:    conn,
+		Removed: time.Time{},
 	}
 }
 

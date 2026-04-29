@@ -1,15 +1,16 @@
 package ui
 
 import (
-	"github.com/dustin/go-humanize"
-	"github.com/momiji/kpx/utils"
-	"github.com/enterprizesoftware/rate-counter"
-	"github.com/gdamore/tcell/v2"
-	"github.com/rivo/tview"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/dustin/go-humanize"
+	ratecounter "github.com/enterprizesoftware/rate-counter"
+	"github.com/gdamore/tcell/v2"
+	"github.com/momiji/kpx/utils"
+	"github.com/rivo/tview"
 )
 
 var screen tcell.Screen
@@ -220,12 +221,15 @@ func appUpdate() {
 						state := rowActive
 						order := 0
 						if row.Removed.IsZero() {
-							updated := row.LastSend
-							if row.LastReceive.After(updated) {
-								updated = row.LastReceive
-							}
-							if time.Since(updated) > 1*time.Second {
-								state = rowStalled
+							if row.Conn.Closed.Load() {
+								state = rowRemoved
+								order = 1
+								row.Removed = time.Now()
+							} else {
+								updated := row.Conn.LastUse
+								if time.Since(updated) > 1*time.Second {
+									state = rowStalled
+								}
 							}
 						} else {
 							state = rowRemoved
@@ -246,7 +250,7 @@ func appUpdate() {
 					for i, sr := range stateRows {
 						state := sr.state
 						row := sr.row
-						setRow(i+1, state, urlWidth, strconv.Itoa(int(row.ReqId)), row.Url, bytesFormat(row.BytesSentPerSecond), bytesFormat(row.BytesReceivedPerSecond), rateFormat(row.BytesSentPerSecond), rateFormat(row.BytesReceivedPerSecond))
+						setRow(i+1, state, urlWidth, strconv.Itoa(int(row.ReqId)), row.Url, bytesFormat(row.Conn.BytesWrite), bytesFormat(row.Conn.BytesRead), rateFormat(row.Conn.BytesWrite), rateFormat(row.Conn.BytesRead))
 					}
 					// remove any extra rows
 					for i := table.GetRowCount() - 1; i > rowsToDisplay; i-- {

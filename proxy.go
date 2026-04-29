@@ -16,6 +16,7 @@ import (
 
 	"github.com/momiji/kpx/auth"
 	"github.com/momiji/kpx/log"
+	"github.com/momiji/kpx/transport"
 	"github.com/momiji/kpx/ui"
 	"github.com/momiji/kpx/utils"
 
@@ -278,14 +279,6 @@ func (p *Proxy) run() error {
 		_logger.Infof("[-] Proxy will exit automatically in %v seconds", options.Timeout)
 	}
 
-	// start automatic pool vacuum
-	go func() {
-		for !p.stopped() {
-			<-time.After(time.Duration(POOL_CLOSE_TIMEOUT) * time.Second)
-			p.vacuumPool()
-		}
-	}()
-
 	// start http server
 	if config.conf.Port != 0 {
 		ln, err := net.Listen("tcp4", fmt.Sprint(config.conf.Bind, ":", config.conf.Port))
@@ -308,7 +301,7 @@ func (p *Proxy) run() error {
 					_ = conn.Close() // force closing client, ignore any error
 					continue
 				}
-				ConfigureConn(conn)
+				transport.ConfigureConn(conn)
 				if p.stopped() {
 					_ = conn.Close() // force closing client, ignore any error
 					break
@@ -433,111 +426,6 @@ func (p *Proxy) generateKerberosNative(protocol string, host string) (*string, e
 	}
 	auth := "Negotiate " + *token
 	return &auth, nil
-}
-
-type PooledConnection struct {
-	conn    *CloseAwareConn
-	timeout time.Time
-	reqId   int32
-}
-
-type PooledConnectionInfo struct {
-	key   string
-	conn  *CloseAwareConn
-	reqId int32
-}
-
-func (p *Proxy) newPooledConn(dialer *net.Dialer, network string, proxy string, host string, context string, reqId int32) (bool, *PooledConnectionInfo, error) {
-	key := network + "/" + proxy + "/" + context + "/" + host
-	if p.experimentalConnectionPools {
-		p.poolMutex.Lock()
-		defer p.poolMutex.Unlock()
-		var items *list.List
-		if l, ok := p.connPool[key]; ok {
-			items = l
-		} else {
-			l = list.New()
-			p.connPool[key] = l
-			items = l
-		}
-		for {
-			item := items.Front()
-			if item == nil {
-				break
-			}
-			items.Remove(item)
-			pc := item.Value.(*PooledConnection)
-			if pc.timeout.After(time.Now()) {
-				if trace {
-					_logger.Infof("(%d) reusing connection %d from pool", reqId, pc.reqId)
-				}
-				_ = pc.conn.SetDeadline(time.Time{})
-				pc.conn.Reset(reqId)
-				return true, &PooledConnectionInfo{key, pc.conn, pc.reqId}, nil
-			} else {
-				_ = pc.conn.Close()
-			}
-			if trace {
-				_logger.Infof("(%d) removed old connection %d from pool", reqId, pc.reqId)
-			}
-		}
-	}
-	// create a new connection
-	c, err := NewCloseAwareConn(dialer, network, proxy, reqId)
-	return false, &PooledConnectionInfo{key, c, reqId}, err
-}
-
-func (p *Proxy) pushConnToPool(info *PooledConnectionInfo, reqId int32) {
-	if p.experimentalConnectionPools {
-		if trace {
-			_logger.Infof("(%d) pushing connection %d to pool for later reuse", reqId, info.reqId)
-		}
-		p.poolMutex.Lock()
-		defer p.poolMutex.Unlock()
-		poolTimeout := time.Now().Add(POOL_CLOSE_TIMEOUT * time.Second)
-		closeTimeout := poolTimeout.Add(POOL_CLOSE_TIMEOUT_ADD * time.Second)
-		if err := info.conn.SetDeadline(closeTimeout); err == nil {
-			var items *list.List
-			if l, ok := p.connPool[info.key]; ok {
-				items = l
-			} else {
-				l = list.New()
-				p.connPool[info.key] = l
-				items = l
-			}
-			items.PushBack(&PooledConnection{conn: info.conn, timeout: poolTimeout, reqId: info.reqId})
-		}
-	}
-}
-
-func (p *Proxy) vacuumPool() {
-	if trace {
-		_logger.Infof("deleting connections from pool")
-	}
-	p.poolMutex.Lock()
-	defer p.poolMutex.Unlock()
-	now := time.Now()
-	total := 0
-	count := 0
-	for key, items := range p.connPool {
-		var next *list.Element
-		for e := items.Front(); e != nil; e = next {
-			total++
-			next = e.Next()
-			pc := e.Value.(*PooledConnection)
-			if pc.timeout.After(now) {
-				count++
-				_ = pc.conn.Close()
-				items.Remove(e)
-			}
-		}
-		if items.Len() == 0 {
-			delete(p.connPool, key)
-		}
-	}
-	if trace {
-		_logger.Infof("%d connections removed from pool, %d remaining", count, total-count)
-	}
 }
 
 // check if ip is in the list of allowed ips or cidrs

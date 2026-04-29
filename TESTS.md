@@ -1,14 +1,16 @@
-# kpx - tests
+# Integration Tests
 
-## Automated tests
+## Architecture
 
-See `./tests/tests.sh`.
+- multiple containers
+- how to start all containers at once
+- how to run code automatically
 
-## Manual tests
+## Tests
 
-The following tests must be done manually:
-- Check with no `credential`: per-user authentication
-- Check with no `password`: ask password on startup
-- Check with no `username`: ask username and password on startup
-- Performance comparison with sites like http://www.http2demo.io
-- Check with double KDC with delegation
+Test all authentication modes
+
+Test fallback for multiple proxies
+
+Multiple configuration files needed ?
+

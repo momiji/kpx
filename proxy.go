@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/momiji/kpx/auth"
 	"github.com/momiji/kpx/log"
 	"github.com/momiji/kpx/ui"
 	"github.com/momiji/kpx/utils"
@@ -25,18 +26,18 @@ import (
 )
 
 type Proxy struct {
-	config                      atomic.Pointer[Config] // atomic
-	forceStop                   bool                   // not atomic - used only for get/set, no conditional update
-	newRequestId                atomic.Int32           // atomic - used in each process
-	requestsCount               atomic.Int32           // atomic - used in each connection
-	kerberos                    *KerberosStore         // not atomic - used only for get/set, no conditional update - initialized once
-	lastModTime                 time.Time              // not atomic - used only for get/set in one coroutine
-	lastLoadTime                time.Time              // not atomic - used only for get/set in one coroutine
-	loadCounter                 atomic.Int32           // atomic - used in each process to test if config has been updated
-	reloadEvent                 *utils.ManualResetEvent      //
-	fixWatchEvent               *utils.ManualResetEvent      //
-	connPool                    map[string]*list.List  // must be synced - used in each process
-	poolMutex                   sync.Mutex             // atomic - used in each process
+	config                      atomic.Pointer[Config]  // atomic
+	forceStop                   bool                    // not atomic - used only for get/set, no conditional update
+	newRequestId                atomic.Int32            // atomic - used in each process
+	requestsCount               atomic.Int32            // atomic - used in each connection
+	kerberos                    *auth.KerberosStore     // not atomic - used only for get/set, no conditional update - initialized once
+	lastModTime                 time.Time               // not atomic - used only for get/set in one coroutine
+	lastLoadTime                time.Time               // not atomic - used only for get/set in one coroutine
+	loadCounter                 atomic.Int32            // atomic - used in each process to test if config has been updated
+	reloadEvent                 *utils.ManualResetEvent //
+	fixWatchEvent               *utils.ManualResetEvent //
+	connPool                    map[string]*list.List   // must be synced - used in each process
+	poolMutex                   sync.Mutex              // atomic - used in each process
 	experimentalConnectionPools bool
 	consoleUI                   bool
 
@@ -115,7 +116,14 @@ func (p *Proxy) load() error {
 		return stacktrace.Propagate(err, "unable to get credentials")
 	}
 	// initialize kerberos
-	k, err := NewKerberosStore(config)
+	krbConfig := &auth.KerberosConfig{
+		KrbString:       config.conf.Krb5,
+		DefaultDomain:   AppDefaultDomain,
+		DomainMapper:    config.conf.Domains,
+		KdcConnTimeout:  time.Duration(config.conf.ConnectTimeout) * time.Second,
+		KdcCacheTimeout: KDC_TEST_TIMEOUT * time.Second,
+	}
+	k, err := auth.NewKerberosStore(krbConfig, _logger)
 	if err != nil {
 		return stacktrace.Propagate(err, "unable to create kerberos store")
 	}
@@ -140,7 +148,7 @@ func (p *Proxy) loadKerberos(config *Config) error {
 				}
 			} else {
 				// try to log in with username/password
-				_, err := p.kerberos.safeTryLogin(*proxy.cred.Login, *proxy.Realm, *proxy.cred.Password, false)
+				_, err := p.kerberos.SafeTryLogin(*proxy.cred.Login, *proxy.Realm, *proxy.cred.Password, false)
 				if err != nil {
 					return stacktrace.Propagate(err, "unable to login to kerberos")
 				}
@@ -407,7 +415,7 @@ func (p *Proxy) generateKerberosNegotiate(username string, realm string, passwor
 	if p.stopped() {
 		return nil, nil
 	}
-	token, err := p.kerberos.safeGetToken(username, realm, password, protocol, host)
+	token, err := p.kerberos.SafeGetToken(username, realm, password, protocol, host)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "unable to get kerberos token")
 	}

@@ -1,6 +1,6 @@
 //go:build linux
 
-package kpx
+package auth
 
 import (
 	"encoding/base64"
@@ -14,35 +14,31 @@ import (
 	"github.com/jcmturner/gokrb5/v8/config"
 	"github.com/jcmturner/gokrb5/v8/credentials"
 	"github.com/jcmturner/gokrb5/v8/spnego"
+	"github.com/momiji/kpx/log"
 	"github.com/palantir/stacktrace"
 )
 
-var NativeKerberos = &LinuxKerberos{}
-
 type LinuxKerberos struct {
-	mutex sync.Mutex
-	cfg   *config.Config
+	mutex  sync.Mutex
+	cfg    *config.Config
+	logger log.Logger
+}
+
+func NewNativeKerberos(logger log.Logger) *LinuxKerberos {
+	return &LinuxKerberos{
+		logger: logger,
+	}
 }
 
 func (k *LinuxKerberos) SafeTryLogin() error {
-	if k.cfg != nil {
-		return nil
-	}
-
-	_logger.Infof("[-] Authenticating user with Linux native kerberos")
-
-	var err error
-
-	err = k.makeCfg()
+	err := k.makeCfg()
 	if err != nil {
 		return stacktrace.Propagate(err, "unable to acquire kerberos config from Linux")
 	}
-
 	_, err = k.makeClient()
 	if err != nil {
 		return stacktrace.Propagate(err, "unable to acquire kerberos ccache from Linux")
 	}
-
 	return nil
 }
 
@@ -109,6 +105,7 @@ func (k *LinuxKerberos) makeCfg() error {
 		return err
 	}
 
+	k.logger.Infof("[-] Authenticating user with Linux native kerberos")
 	k.cfg = cfg
 	return nil
 }

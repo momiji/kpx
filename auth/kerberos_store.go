@@ -1,16 +1,20 @@
-package kpx
+package auth
 
 import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
+	"strings"
+	"sync"
+
 	"github.com/jcmturner/gokrb5/v8/client"
 	"github.com/jcmturner/gokrb5/v8/krberror"
 	"github.com/jcmturner/gokrb5/v8/spnego"
+	"github.com/momiji/kpx/log"
 	"github.com/palantir/stacktrace"
-	"strings"
-	"sync"
 )
+
+var noAuth = ""
 
 type KerberosStore struct {
 	kerberos     *Kerberos
@@ -18,9 +22,8 @@ type KerberosStore struct {
 	clientsMutex sync.Mutex
 }
 
-func NewKerberosStore(config *Config) (*KerberosStore, error) {
-	kerberos := NewKerberos(config)
-	err := kerberos.init()
+func NewKerberosStore(krbConfig *KerberosConfig, logger log.Logger) (*KerberosStore, error) {
+	kerberos, err := NewKerberos(krbConfig, logger)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "unable to initialize kerberos")
 	}
@@ -50,7 +53,7 @@ func (ks *KerberosStore) safeRemoveClient(key string) {
 }
 
 // Try to login with the given credentials, only if not yet logged in
-func (ks *KerberosStore) safeTryLogin(username, realm, password string, force bool) (*KerberosClient, error) {
+func (ks *KerberosStore) SafeTryLogin(username, realm, password string, force bool) (*KerberosClient, error) {
 	// create key
 	key := ks.clientKey(username, realm, password)
 	// remove client to force login?
@@ -80,8 +83,8 @@ func (ks *KerberosStore) safeTryLogin(username, realm, password string, force bo
 	return kcl, nil
 }
 
-func (ks *KerberosStore) safeGetToken(username, realm, password, protocol string, host string) (*string, error) {
-	kcl, err := ks.safeTryLogin(username, realm, password, false)
+func (ks *KerberosStore) SafeGetToken(username, realm, password, protocol string, host string) (*string, error) {
+	kcl, err := ks.SafeTryLogin(username, realm, password, false)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "unable to login to kerberos")
 	}
@@ -90,7 +93,7 @@ func (ks *KerberosStore) safeGetToken(username, realm, password, protocol string
 	}
 	token, err := kcl.safeGetToken(protocol, host)
 	if err != nil {
-		kcl, err = ks.safeTryLogin(username, realm, password, true)
+		kcl, err = ks.SafeTryLogin(username, realm, password, true)
 		if kcl == nil {
 			return &noAuth, nil
 		}

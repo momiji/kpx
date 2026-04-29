@@ -1,22 +1,29 @@
 //go:build windows
 
-package kpx
+package auth
 
 import (
 	"encoding/base64"
-	"github.com/alexbrainman/sspi"
-	"github.com/alexbrainman/sspi/negotiate"
-	"github.com/palantir/stacktrace"
 	"net"
 	"strings"
 	"sync"
+
+	"github.com/alexbrainman/sspi"
+	"github.com/alexbrainman/sspi/negotiate"
+	"github.com/momiji/kpx/log"
+	"github.com/palantir/stacktrace"
 )
 
-var NativeKerberos = &WindowsKerberos{}
-
 type WindowsKerberos struct {
-	done  bool
-	mutex sync.Mutex
+	done   bool
+	mutex  sync.Mutex
+	logger log.Logger
+}
+
+func NewNativeKerberos(logger log.Logger) *WindowsKerberos {
+	return &WindowsKerberos{
+		logger: logger,
+	}
 }
 
 func (k *WindowsKerberos) SafeTryLogin() error {
@@ -26,7 +33,7 @@ func (k *WindowsKerberos) SafeTryLogin() error {
 		return nil
 	}
 	k.done = true
-	logInfo("[-] Authenticating user with Windows native kerberos")
+	k.logger.Infof("[-] Authenticating user with Windows native kerberos")
 	_, err := negotiate.AcquireCurrentUserCredentials()
 	if err != nil {
 		return stacktrace.Propagate(err, "unable to acquire kerberos credentials from Windows")

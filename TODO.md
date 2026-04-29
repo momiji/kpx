@@ -1,2 +1,4 @@
 - véfifier les logs et simplifier pour ne pas voir apparaître process/client/proxy pour les logs des headers
 - modifier le loglevel au rechargement de la config
+- remplacer les errors par des stacktrace.propagate ?
+- DomainMapper : passer de *string à string

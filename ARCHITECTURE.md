@@ -45,7 +45,7 @@ kpx/
 │   ├── auth.go                # Authenticator interface
 │   ├── kerberos.go            # Kerberos auth (SPNEGO/Negotiate)
 │   ├── basic.go               # Basic auth (base64)
-│   └── store.go               # KerberosStore: multi-client Kerberos management
+│   └── kerberos_store.go      # KerberosStore: multi-client Kerberos management
 │
 ├── transport/                 # Low-level network layer
 │   ├── conn.go                # TimedConn, CloseAwareConn

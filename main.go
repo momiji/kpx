@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/jcmturner/gokrb5/v8/client"
+	"github.com/momiji/kpx/auth"
 	"github.com/momiji/kpx/log"
 )
 
@@ -619,3 +620,4 @@ func jsMap(v any) map[string]any {
 }
 
 var _logger = log.NewDefaultLogger()
+var NativeKerberos = auth.NewNativeKerberos(_logger)

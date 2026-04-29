@@ -1,18 +1,17 @@
 //go:build !windows && !linux
 
-package kpx
+package auth
 
 import (
 	"errors"
-	"github.com/jcmturner/gokrb5/v8/config"
-	"sync"
+
+	"github.com/momiji/kpx/log"
 )
 
-var NativeKerberos = &NoKerberos{}
+type NoKerberos struct{}
 
-type NoKerberos struct {
-	mutex sync.Mutex
-	cfg   *config.Config
+func NewNativeKerberos(_ log.Logger) *NoKerberos {
+	return &NoKerberos{}
 }
 
 func (k *NoKerberos) SafeTryLogin() error {

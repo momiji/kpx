@@ -24,7 +24,7 @@ type LinuxKerberos struct {
 	logger log.Logger
 }
 
-func NewNativeKerberos(logger log.Logger) *LinuxKerberos {
+func NewDefaultNativeKerberos(logger log.Logger) *LinuxKerberos {
 	return &LinuxKerberos{
 		logger: logger,
 	}

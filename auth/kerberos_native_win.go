@@ -20,7 +20,7 @@ type WindowsKerberos struct {
 	logger log.Logger
 }
 
-func NewNativeKerberos(logger log.Logger) *WindowsKerberos {
+func NewDefaultNativeKerberos(logger log.Logger) *WindowsKerberos {
 	return &WindowsKerberos{
 		logger: logger,
 	}

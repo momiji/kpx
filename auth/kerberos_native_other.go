@@ -10,7 +10,7 @@ import (
 
 type NoKerberos struct{}
 
-func NewNativeKerberos(_ log.Logger) *NoKerberos {
+func NewDefaultNativeKerberos(_ log.Logger) *NoKerberos {
 	return &NoKerberos{}
 }
 

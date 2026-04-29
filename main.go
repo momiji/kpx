@@ -620,4 +620,4 @@ func jsMap(v any) map[string]any {
 }
 
 var _logger = log.NewDefaultLogger()
-var NativeKerberos = auth.NewNativeKerberos(_logger)
+var NativeKerberos = auth.NewDefaultNativeKerberos(_logger)

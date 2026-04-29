@@ -663,7 +663,7 @@ func (p *Process) forwardStream(source *ProxyRequest, target *ProxyRequest) erro
 	if source.header.contentLength == -1 {
 		// Use our own implementation of NewChunkedReader instead of original http.NewChunkedReader
 		// to also copy the chunked lines
-		reader = NewChunkedReader(sourceReader)
+		reader = transport.NewChunkedReader(sourceReader)
 	} else {
 		reader = io.LimitReader(sourceReader, source.header.contentLength)
 	}

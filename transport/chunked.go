@@ -1,7 +1,7 @@
 // This is a modification of net.http.internal.chunked to also receive chunks line.
 // The purpose is to have a raw header which understand chunks, but does not convert it.
 // ALl changes are marked with "CHANGED" comment.
-package kpx
+package transport
 
 import (
 	"bufio"

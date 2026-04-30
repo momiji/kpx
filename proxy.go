@@ -64,13 +64,13 @@ func (p *Proxy) setConfig(config *Config) {
 		_logger.SetLogLevel(log.LogLevelInfo)
 	}
 
-	p.experimentalConnectionPools = config.conf.experimentalConnectionPools
+	p.experimentalConnectionPools = config.experimentalConnectionPools
 	//
 	features := ""
-	if config.conf.experimentalConnectionPools {
+	if config.experimentalConnectionPools {
 		features += "," + EXPERIMENTAL_CONNETION_POOLS
 	}
-	if config.conf.experimentalHostsCache {
+	if config.experimentalHostsCache {
 		features += "," + EXPERIMENTAL_HOSTS_CACHE
 	}
 	if features != "" {

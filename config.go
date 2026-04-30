@@ -1,12 +1,10 @@
 package kpx
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -21,20 +19,24 @@ import (
 	"github.com/momiji/kpx/utils"
 	"github.com/palantir/stacktrace"
 	"golang.org/x/text/encoding/charmap"
-	yaml2 "gopkg.in/yaml.v2"
 )
 
 type Config struct {
 	conf              Conf
 	pac               string
-	lastProxies       map[string]time.Time
-	lastMMutex        sync.RWMutex
-	certsManager      certs.CertManager
-	disableAutoUpdate bool
-	hostsCache        map[string]*HostCache
-	hostsCacheMutex   sync.RWMutex
-	pacsCache         map[string]string
-	needFastReload    bool
+	// fields promoted from Conf – computed during build, not deserialized from YAML
+	pacProxy                    string
+	pacProxies                  []*ConfProxy
+	experimentalConnectionPools bool
+	experimentalHostsCache      bool
+	lastProxies                 map[string]time.Time
+	lastMMutex                  sync.RWMutex
+	certsManager                certs.CertManager
+	disableAutoUpdate           bool
+	hostsCache                  map[string]*HostCache
+	hostsCacheMutex             sync.RWMutex
+	pacsCache                   map[string]string
+	needFastReload              bool
 }
 
 type HostCache struct {
@@ -49,29 +51,25 @@ const CREDENTIAL_KERBEROS = "kerberos"
 
 func NewConfig(name string) (*Config, error) {
 	var config = Config{
-		conf: Conf{
-			Proxies:        make(map[string]*ConfProxy),
-			Rules:          make([]*ConfRule, 0),
-			SocksRules:     make([]*ConfRule, 0),
-			ConnectTimeout: DEFAULT_CONNECT_TIMEOUT,
-			IdleTimeout:    DEFAULT_IDLE_TIMOUT,
-			CloseTimeout:   DEFAULT_CLOSE_TIMEOUT,
-		},
 		lastProxies: map[string]time.Time{},
 		hostsCache:  map[string]*HostCache{},
 		pacsCache:   map[string]string{},
 	}
 	var err error
 	if name == "" {
-		err = config.readFromConfig()
+		config.conf = *readConfFromOptions()
 	} else {
-		err = config.readFromFile(name)
+		var conf *Conf
+		conf, err = readConfFromFile(name)
+		if err == nil {
+			config.conf = *conf
+		}
 	}
 	config.conf.Trace = config.conf.Trace || options.Trace
 	config.conf.Debug = config.conf.Debug || options.Debug || config.conf.Trace
 	config.conf.Verbose = config.conf.Verbose || options.Verbose || config.conf.Debug
-	config.conf.experimentalConnectionPools = isExperimental(config.conf.Experimental, EXPERIMENTAL_CONNETION_POOLS)
-	config.conf.experimentalHostsCache = isExperimental(config.conf.Experimental, EXPERIMENTAL_HOSTS_CACHE)
+	config.experimentalConnectionPools = isExperimental(config.conf.Experimental, EXPERIMENTAL_CONNETION_POOLS)
+	config.experimentalHostsCache = isExperimental(config.conf.Experimental, EXPERIMENTAL_HOSTS_CACHE)
 	if err != nil {
 		return nil, stacktrace.Propagate(err, "unable to read config")
 	}
@@ -96,90 +94,6 @@ func NewConfig(name string) (*Config, error) {
 
 func isExperimental(conf string, name string) bool {
 	return strings.Contains(" "+strings.ReplaceAll(conf, ",", " ")+" ", " "+name+" ")
-}
-
-func (c *Config) readFromConfig() error {
-	c.conf.Bind = options.bindHost
-	c.conf.Port = options.bindPort
-
-	c.conf.Proxies = map[string]*ConfProxy{}
-	c.conf.Credentials = map[string]*ConfCred{}
-	proxyName := "proxy"
-
-	if options.proxyPort == 0 {
-		// consider proxy is a direct proxy
-		proxyName = "direct"
-	} else if options.login == "" {
-		// consider proxy is a simple anonymous proxy
-		proxyType := ProxyAnonymous
-		c.conf.Proxies[proxyName] = &ConfProxy{
-			Type: &proxyType,
-			Host: &options.proxyHost,
-			Port: options.proxyPort,
-		}
-	} else {
-		// consider proxy is a kerberos proxy
-		proxyType := ProxyKerberos
-		proxySpn := "HTTP"
-		proxyCred := "user"
-		c.conf.Proxies[proxyName] = &ConfProxy{
-			Type:       &proxyType,
-			Spn:        &proxySpn,
-			Realm:      &options.domain,
-			Host:       &options.proxyHost,
-			Port:       options.proxyPort,
-			Credential: &proxyCred,
-		}
-		// add kerberos credential
-		c.conf.Credentials[proxyCred] = &ConfCred{
-			Login: &options.login,
-		}
-	}
-
-	c.conf.Rules = make([]*ConfRule, 1)
-	ruleHost := "*"
-	c.conf.Rules[0] = &ConfRule{
-		Host:  &ruleHost,
-		Proxy: &proxyName,
-	}
-
-	if options.ACL != "" {
-		c.conf.ACL = strings.Split(options.ACL, ",")
-	}
-
-	return nil
-}
-
-func (c *Config) readFromFile(filename string) error {
-	var yaml []byte
-	var err error
-	yaml, err = os.ReadFile(filename)
-	if err != nil {
-		return stacktrace.Propagate(err, "unable to read file")
-	}
-	if strings.HasPrefix(strings.TrimSpace(string(yaml)), "{") {
-		err = json.Unmarshal(yaml, &c.conf)
-	} else {
-		err = yaml2.Unmarshal(yaml, &c.conf)
-	}
-	if err != nil {
-		return stacktrace.Propagate(err, "unable to read file as yaml/json")
-	}
-	if options.Listen != "" {
-		h, p := splitHostPort(options.Listen, "127.0.0.1", "0", true)
-		c.conf.Bind = h
-		c.conf.Port, _ = strconv.Atoi(p)
-	}
-	if options.User != "" {
-		for _, cred := range c.conf.Credentials {
-			// auto-fill missing login
-			if cred.Login == nil {
-				cred.Login = &options.User
-				cred.Password = nil
-			}
-		}
-	}
-	return nil
 }
 
 func (c *Config) check() (err error) {
@@ -332,7 +246,7 @@ func (c *Config) build() error {
 		c.conf.Bind = "127.0.0.1"
 	}
 	// build server pac proxy string
-	c.conf.pacProxy = fmt.Sprint("PROXY ", c.conf.Bind, ":", c.conf.Port)
+	c.pacProxy = fmt.Sprint("PROXY ", c.conf.Bind, ":", c.conf.Port)
 	// build rules
 	for _, rule := range c.conf.Rules {
 		regex, err := c.regex(*rule.Host)
@@ -431,13 +345,13 @@ func (c *Config) build() error {
 		}
 	}
 	// build pac proxies sorted by pacOrder
-	c.conf.pacProxies = make([]*ConfProxy, 0)
+	c.pacProxies = make([]*ConfProxy, 0)
 	for _, proxy := range c.conf.Proxies {
 		if proxy.Pac != nil {
-			c.conf.pacProxies = append(c.conf.pacProxies, proxy)
+			c.pacProxies = append(c.pacProxies, proxy)
 		}
 	}
-	sort.SliceStable(c.conf.pacProxies, func(i, j int) bool { return c.conf.pacProxies[i].PacOrder < c.conf.pacProxies[j].PacOrder })
+	sort.SliceStable(c.pacProxies, func(i, j int) bool { return c.pacProxies[i].PacOrder < c.pacProxies[j].PacOrder })
 
 	// build creds
 	for name, cred := range c.conf.Credentials {
@@ -493,7 +407,7 @@ func (c *Config) build() error {
 				}
 			}
 			if js == "" {
-				noneJs := fmt.Sprintf(`function FindProxyForURL() { return "%s"; }`, c.conf.pacProxy)
+				noneJs := fmt.Sprintf(`function FindProxyForURL() { return "%s"; }`, c.pacProxy)
 				proxy.pacJs = &noneJs
 				proxy.pacRuntime = nil
 				c.needFastReload = true
@@ -641,14 +555,14 @@ function(url, host) {
 			for _, confProxy := range c.conf.Proxies {
 				//if confProxy.Host != nil {
 				//	hp := *confProxy.Host + ":" + strconv.Itoa(confProxy.Port)
-				//	p := c.conf.pacProxy
+				//	p := c.pacProxy
 				//	if confProxy.pacProxy != nil {
 				//		p = *confProxy.pacProxy
 				//	}
 				//	builder.WriteString(fmt.Sprint(`  if (hostPort === "`, hp, `") return "`, p, `";`, "\n"))
 				//}
 				if confProxy.pacRegex != nil {
-					p := c.conf.pacProxy
+					p := c.pacProxy
 					if confProxy.pacProxy != nil {
 						p = *confProxy.pacProxy
 					}
@@ -674,7 +588,7 @@ function(url, host) {
 				}
 			}
 			if p == "" {
-				p = c.conf.pacProxy
+				p = c.pacProxy
 			} else {
 				p = p[1:]
 			}
@@ -753,7 +667,7 @@ func (c *Config) match(url string, hostPort string, prefix string, rules *[]*Con
 		match := false
 		if rule.regex.pattern == nil {
 			match = true
-		} else if !c.conf.experimentalHostsCache && strings.Contains(rule.regex.regex, "/") {
+		} else if !c.experimentalHostsCache && strings.Contains(rule.regex.regex, "/") {
 			match = rule.regex.pattern.MatchString(url) != rule.regex.exclude
 		} else if strings.Contains(rule.regex.regex, ":") {
 			match = rule.regex.pattern.MatchString(hostPort) != rule.regex.exclude
@@ -813,7 +727,7 @@ func (c *Config) resolve(url, host string, rule *ConfRule) []*ConfProxy {
 	case pacResult.isSocks, pacResult.isProxy:
 		// lookup hostPort in existing proxies (host/port and pac), if found use it, otherwise create a new one
 		var pacProxies []*ConfProxy
-		for _, confProxy := range c.conf.pacProxies {
+		for _, confProxy := range c.pacProxies {
 			//if confProxy.Host != nil {
 			//	if *confProxy.Host+":"+strconv.Itoa(confProxy.Port) == pacResult.hostPort {
 			//		return confProxy
@@ -995,125 +909,6 @@ func (c *Config) genCerts() error {
 	}
 	c.certsManager = cm
 	return nil
-}
-
-type ProxyType string
-
-const (
-	ProxyKerberos  ProxyType = "kerberos"
-	ProxySocks     ProxyType = "socks"
-	ProxyAnonymous ProxyType = "anonymous"
-	ProxyDirect    ProxyType = "direct"
-	ProxyBasic     ProxyType = "basic"
-	ProxyNone      ProxyType = "none"
-	ProxyPac       ProxyType = "pac"
-)
-
-var ConfProxyContinue = ConfProxy{}
-
-func (pt ProxyType) Name() string {
-	return string(pt)
-}
-
-func (pt ProxyType) Value() int {
-	switch pt {
-	case ProxyKerberos:
-		return 0
-	case ProxySocks:
-		return 1
-	case ProxyAnonymous:
-		return 2
-	case ProxyDirect:
-		return 3
-	case ProxyBasic:
-		return 4
-	case ProxyNone:
-		return 5
-	case ProxyPac:
-		return 6
-	}
-	return -1
-}
-
-type Conf struct {
-	Bind                        string
-	Port                        int
-	SocksPort                   int `yaml:"socksPort"`
-	Verbose                     bool
-	Debug                       bool
-	Trace                       bool
-	Proxies                     map[string]*ConfProxy
-	Credentials                 map[string]*ConfCred
-	Domains                     map[string]*string
-	Rules                       []*ConfRule
-	SocksRules                  []*ConfRule `yaml:"socksRules"`
-	pacProxy                    string
-	Krb5                        string
-	ConnectTimeout              int `yaml:"connectTimeout"`
-	IdleTimeout                 int `yaml:"idleTimeout"`
-	CloseTimeout                int `yaml:"closeTimeout"`
-	Check                       *bool
-	Update                      bool
-	Restart                     bool
-	UseEnvProxy                 bool
-	Experimental                string       // space/comma separated list of features
-	experimentalConnectionPools bool         // add a connection pool for http
-	experimentalHostsCache      bool         // add a hosts cache for proxy lookup - fine grained url lookup is then disabled
-	ACL                         []string     `yaml:"acl"` // comma-separated list of allowed IPs or CIDRs. If empty everybody is allowed
-	pacProxies                  []*ConfProxy // list of proxy ordered by pacOrder, used for pac proxy
-	ConsoleUI                   bool         `yaml:"ui"` // enable console ui
-}
-
-type ConfCred struct {
-	name      *string
-	Login     *string
-	Password  *string
-	isNull    bool
-	isPerUser bool
-	isUsed    bool // set if is not nil, not per user and is used by a a rule => proxy
-	isNative  bool // set if using native kerberos implementation
-}
-
-type ConfProxy struct {
-	name        *string
-	Type        *ProxyType
-	typeValue   int
-	Host        *string
-	Port        int
-	Verbose     *bool
-	Ssl         bool
-	Spn         *string
-	Realm       *string
-	Credential  *string
-	Credentials *string
-	cred        *ConfCred // cannot be nil for kerberos, basic, and eventually for socks
-	Pac         *string
-	PacOrder    int `yaml:"pacOrder"` // order of pac execution, higher means executed last, default value is 0
-	pacRegex    *ConfRegex
-	Url         *string
-	pacJs       *string
-	// proxy       string
-	pacProxy   *string
-	isUsed     bool
-	pacRuntime *PacExecutor
-}
-
-type ConfRule struct {
-	Host    *string
-	Proxy   *string //
-	Dns     *string
-	Verbose *bool
-	Mitm    bool
-	regex   *ConfRegex
-	//confProxy *ConfProxy // cannot be nil
-}
-
-func (r *ConfRule) firstProxy() string {
-	return strings.Split(*r.Proxy, ",")[0]
-}
-
-func (r *ConfRule) allProxiesName() []string {
-	return strings.Split(*r.Proxy, ",")
 }
 
 type ConfRegex struct {

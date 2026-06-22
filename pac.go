@@ -83,10 +83,10 @@ func isPlainHostName(host string) bool {
 	return !strings.Contains(host, ".")
 }
 func dnsDomainIs(host, domain string) bool {
-	return strings.HasPrefix(domain, ".") && strings.HasSuffix(host, domain)
+	return host == domain || strings.HasSuffix(host, "."+domain)
 }
 func localHostOrDomainIs(host, hostdom string) bool {
-	return host == hostdom || (!strings.Contains(host, ".") && strings.HasPrefix(hostdom, host))
+	return host == hostdom || (!strings.Contains(host, ".") && strings.HasPrefix(hostdom, host+"."))
 }
 func isResolvable(host string) bool {
 	_, err := net.LookupHost(host)
@@ -94,6 +94,9 @@ func isResolvable(host string) bool {
 }
 func isInNet(host, pattern, mask string) bool {
 	host = dnsResolve(host)
+	if host == "" {
+		return false
+	}
 	hostInt := convert_addr(host)
 	patternInt := convert_addr(pattern)
 	maskInt := convert_addr(mask)
@@ -111,19 +114,26 @@ func dnsResolve(host string) string {
 }
 func convert_addr(ipaddr string) int64 {
 	ip := net.ParseIP(ipaddr)
+	if ip == nil {
+		return 0
+	}
 	ipInt := big.NewInt(0)
 	ipInt.SetBytes(ip.To4())
 	return ipInt.Int64()
 }
 func myIpAddress() string {
-	ips, err := net.LookupHost("localhost")
-	if err != nil {
-		return "127.0.0.1"
+	// Fallback if no suitable route/interface is found.
+	ip := "127.0.0.1"
+
+	// UDP "dial" does not send packets here; it just asks kernel for route/source IP.
+	conn, err := net.Dial("udp4", "1.1.1.1:80")
+	if err == nil {
+		defer conn.Close()
+		if ua, ok := conn.LocalAddr().(*net.UDPAddr); ok && ua.IP != nil && !ua.IP.IsLoopback() {
+			return ua.IP.String()
+		}
 	}
-	if len(ips) == 0 {
-		return "127.0.0.1"
-	}
-	return ips[0]
+	return ip
 }
 func dnsDomainLevels(host string) int {
 	return len(strings.Split(host, ".")) - 1

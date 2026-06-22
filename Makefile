@@ -1,5 +1,5 @@
 kpx: $(wildcard *.go go.mod go.sum cli/*.go ui/*.go)
-	go build -o kpx -ldflags="-s -w -X main.Version=dev/$$(date +%FT%T%z)" cli/main.go
+	go build -o kpx -ldflags="-s -w -X github.com/momiji/kpx.AppVersion=dev/$$(date +%FT%T%z)" cli/main.go
 
 .PHONY: mod
 update:

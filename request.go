@@ -2,12 +2,13 @@ package kpx
 
 import (
 	"fmt"
-	"github.com/palantir/stacktrace"
 	"io"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/palantir/stacktrace"
 )
 
 const CT_PLAIN_UTF8 = "text/plain; charset=UTF-8"
@@ -255,12 +256,17 @@ func (rh *RequestHeader) analyseResponseLine() error {
 	return nil
 }
 
-func (rh *RequestHeader) analyseHeaders(req bool) error {
+func (rh *RequestHeader) analyseHeaders(req bool, allowEOFDelimitedBody bool) error {
 	var err error
 	// keep alive is the "request" default for HTTP1.1 and HTTP2
 	// although RFC states that HTTP 1.1 is keep-alive by default, it is not working with windows update when going through kpx > tinyproxy > squid > ...
 	// we decided to state that connection must be closed unless the server explicitly asks for keep-alive
 	rh.keepAlive = req && (rh.version == Http11 || rh.version == Http2)
+	hasContentLength := false
+	if allowEOFDelimitedBody && !rh.isConnect {
+		// on response, content-length is -2 (until body EOF) by default, unless chunked (-1) or int value (>=0)
+		rh.contentLength = -2
+	}
 	// loop on headers
 	for i, header := range rh.headers {
 		lower := strings.ToLower(header)
@@ -346,7 +352,8 @@ func (rh *RequestHeader) analyseHeaders(req bool) error {
 			}
 			rh.hostPort = rh.host + ":" + sport
 			rh.lineUrl = rh.url
-		case strings.HasPrefix(lower, "content-length:") && rh.contentLength == 0:
+		case strings.HasPrefix(lower, "content-length:") && !hasContentLength:
+			hasContentLength = true
 			rh.contentLength, err = strconv.ParseInt(strings.TrimSpace(lower[15:]), 10, 64)
 			if err != nil {
 				return stacktrace.Propagate(err, "Invalid content-length header: %s", header)
@@ -381,14 +388,14 @@ func (r *ProxyRequest) readRequestHeaders() error {
 	if err != nil {
 		return err // no wrap
 	}
-	err = rh.analyseHeaders(true)
+	err = rh.analyseHeaders(true, false)
 	if err != nil {
 		return err // no wrap
 	}
 	return nil
 }
 
-func (r *ProxyRequest) readResponseHeaders() error {
+func (r *ProxyRequest) readResponseHeaders(allowEOFDelimitedBody bool) error {
 	rh, err := r.readHeaders()
 	if err != nil {
 		return err // no wrap
@@ -397,7 +404,7 @@ func (r *ProxyRequest) readResponseHeaders() error {
 	if err != nil {
 		return err // no wrap
 	}
-	err = rh.analyseHeaders(false)
+	err = rh.analyseHeaders(false, allowEOFDelimitedBody)
 	if err != nil {
 		return err // no wrap
 	}
@@ -413,7 +420,7 @@ func (r *ProxyRequest) injectResponseHeaders(headers []string) error {
 	if err != nil {
 		return err // no wrap
 	}
-	err = rh.analyseHeaders(false)
+	err = rh.analyseHeaders(false, false)
 	if err != nil {
 		return err // no wrap
 	}

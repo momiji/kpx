@@ -330,7 +330,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 					proxyChannel.prefix = fmt.Sprintf("%s P<", p.logPrefix)
 				}
 				proxyChannel.conn.setTimeout(p.config.conf.IdleTimeout)
-				err = proxyChannel.readResponseHeaders()
+				err = proxyChannel.readResponseHeaders(false)
 				if err != nil {
 					logError("%s => forward: %#s", p.logLine, err)
 					return p.closeChannels(clientChannel, proxyChannel)
@@ -364,7 +364,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 			_ = proxyChannel.injectResponseHeaders([]string{"HTTP/1.0 200 Connection established"})
 		} else {
 			proxyChannel.conn.setTimeout(p.config.conf.IdleTimeout)
-			err := proxyChannel.readResponseHeaders()
+			err := proxyChannel.readResponseHeaders(!clientChannel.header.isConnect)
 			if err != nil {
 				retryable--
 				if err == io.EOF && retryable > 0 {
@@ -459,7 +459,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 			if debug {
 				proxyChannel.prefix = fmt.Sprintf("%s P<", p.logPrefix)
 			}
-			err = proxyChannel.readResponseHeaders()
+			err = proxyChannel.readResponseHeaders(true)
 			if err != nil {
 				break
 			}
@@ -489,7 +489,7 @@ func (p *Process) processChannel(clientChannel, proxyChannel *ProxyRequest) *Pro
 		return p.closeChannels(clientChannel, proxyChannel)
 	}
 	// if KeepAlive, allow to reuse connection
-	if clientChannel.header.keepAlive {
+	if clientChannel.header.keepAlive && proxyChannel.header.contentLength != -2 {
 		// reuse connection only if config has not changed
 		if p.loadCounter == p.proxy.loadCounter.Load() {
 			// reuse proxy channel for next request
@@ -713,8 +713,11 @@ func (p *Process) forwardResponse(proxyChannel *ProxyRequest, clientChannel *Pro
 	if err != nil {
 		return err // no wrap
 	}
-	// special response if HEAD
-	if strings.ToUpper(clientChannel.header.method) == "HEAD" {
+	// special response with no body
+	if strings.ToUpper(clientChannel.header.method) == "HEAD" ||
+		(proxyChannel.header.status >= 100 && proxyChannel.header.status < 200) ||
+		proxyChannel.header.status == 204 ||
+		proxyChannel.header.status == 304 {
 		return nil
 	}
 	return p.forwardStream(proxyChannel, clientChannel)
@@ -724,7 +727,10 @@ func (p *Process) forwardStream(source *ProxyRequest, target *ProxyRequest) erro
 	dataReader := strings.NewReader(string(source.header.data))
 	sourceReader := io.MultiReader(dataReader, source.conn)
 	var reader io.Reader
-	if source.header.contentLength == -1 {
+	if source.header.contentLength == -2 {
+		// No content-length, read until we received EOF
+		reader = sourceReader
+	} else if source.header.contentLength == -1 {
 		// Use our own implementation of NewChunkedReader instead of original http.NewChunkedReader
 		// to also copy the chunked lines
 		reader = NewChunkedReader(sourceReader)

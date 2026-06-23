@@ -1,4 +1,11 @@
 
+## [1.13.0](https://github.com/momiji/kpx/compare/v1.12.3...v1.13.0) (2026-06-23)
+
+* fix: update AppVersion for dev (Makefile) [1d9c3824](https://github.com/momiji/kpx/commit/1d9c3824261cb6a9b7dc3aeb3f27d115fa3e6f1c)
+* fix: pac js functions copilot review [10d1955d](https://github.com/momiji/kpx/commit/10d1955dea817454dff99644c4157bb98caa5d01)
+* fix: response issues in http mode when no content-length is received [9caa8b86](https://github.com/momiji/kpx/commit/9caa8b86c8305ac9b9497f57ad7a3bcdfbed76b3)
+
+
 ## [1.12.3](https://github.com/momiji/kpx/compare/v1.12.2...v1.12.3) (2025-11-03)
 
 * fix: invalid non-empty acl when started from command line [27fa9223](https://github.com/momiji/kpx/commit/27fa92234f7ddc202df46ed1ccd91a97726c2faa)

@@ -1,3 +1,31 @@
+- semver: 1.13.0
+  date: 2026-06-23T18:17:50.66138519+02:00
+  packager: momiji <momiji@github.com>
+  changes:
+    - commit: 1d9c3824261cb6a9b7dc3aeb3f27d115fa3e6f1c
+      note: 'fix: update AppVersion for dev (Makefile)'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 10d1955dea817454dff99644c4157bb98caa5d01
+      note: 'fix: pac js functions copilot review'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
+    - commit: 9caa8b86c8305ac9b9497f57ad7a3bcdfbed76b3
+      note: 'fix: response issues in http mode when no content-length is received'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
 - semver: 1.12.3
   date: 2025-11-03T15:29:29.306040756+01:00
   packager: ""

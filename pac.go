@@ -83,7 +83,7 @@ func isPlainHostName(host string) bool {
 	return !strings.Contains(host, ".")
 }
 func dnsDomainIs(host, domain string) bool {
-	return host == domain || strings.HasSuffix(host, "."+domain)
+	return strings.HasPrefix(domain, ".") && strings.HasSuffix(host, domain)
 }
 func localHostOrDomainIs(host, hostdom string) bool {
 	return host == hostdom || (!strings.Contains(host, ".") && strings.HasPrefix(hostdom, host+"."))

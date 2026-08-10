@@ -1,3 +1,15 @@
+- semver: 1.13.1
+  date: 2026-08-10T11:38:08.492835511+02:00
+  packager: ""
+  changes:
+    - commit: f49b1b85999af8432f34b78646a429c2d6406549
+      note: 'fix: pac js dnsDomainIs double "." issue'
+      author:
+        name: momiji
+        email: momiji@github.com
+      committer:
+        name: momiji
+        email: momiji@github.com
 - semver: 1.13.0
   date: 2026-06-23T18:17:50.66138519+02:00
   packager: momiji <momiji@github.com>

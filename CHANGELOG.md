@@ -1,4 +1,9 @@
 
+## [1.13.1](https://github.com/momiji/kpx/compare/v1.13.0...v1.13.1) (2026-08-10)
+
+* fix: pac js dnsDomainIs double "." issue [f49b1b85](https://github.com/momiji/kpx/commit/f49b1b85999af8432f34b78646a429c2d6406549)
+
+
 ## [1.13.0](https://github.com/momiji/kpx/compare/v1.12.3...v1.13.0) (2026-06-23)
 
 * fix: update AppVersion for dev (Makefile) [1d9c3824](https://github.com/momiji/kpx/commit/1d9c3824261cb6a9b7dc3aeb3f27d115fa3e6f1c)

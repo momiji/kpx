@@ -328,6 +328,9 @@ func (c *Config) build() error {
 	if c.conf.Bind == "" {
 		c.conf.Bind = "127.0.0.1"
 	}
+	if c.conf.UserAgent != "" {
+		logInfo("[-] %s", c.conf.UserAgent)
+	}
 	// build server pac proxy string
 	c.conf.pacProxy = fmt.Sprint("PROXY ", c.conf.Bind, ":", c.conf.Port)
 	// build rules
@@ -1054,6 +1057,7 @@ type Conf struct {
 	ACL                         []string     `yaml:"acl"` // comma-separated list of allowed IPs or CIDRs. If empty everybody is allowed
 	pacProxies                  []*ConfProxy // list of proxy ordered by pacOrder, used for pac proxy
 	ConsoleUI                   bool         `yaml:"ui"` // enable console ui
+	UserAgent                   string       `yaml:"userAgent"`
 }
 
 type ConfCred struct {
